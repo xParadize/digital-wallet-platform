@@ -1,6 +1,7 @@
 package com.wallet.authservice.controller;
 
 import com.wallet.authservice.dto.ApiResponse;
+import com.wallet.authservice.dto.InputFieldError;
 import com.wallet.authservice.dto.SignUpRequest;
 import com.wallet.authservice.exception.IncorrectSearchPath;
 import jakarta.validation.Valid;
@@ -8,11 +9,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -27,10 +30,10 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse> register(@RequestBody @Valid SignUpRequest signUpRequest, BindingResult bindingResult) {
+    public ResponseEntity<?> register(@RequestBody @Valid SignUpRequest signUpRequest, BindingResult bindingResult) {
         if (bindingResult.hasFieldErrors()) {
-            String errors = getInputFieldErrors(bindingResult);
-            return new ResponseEntity<>(new ApiResponse(false, errors), HttpStatus.BAD_REQUEST);
+            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
+            return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
         }
 
         if (Objects.equals(signUpRequest.getPassword(), signUpRequest.getPasswordConfirmation())) {
@@ -45,10 +48,15 @@ public class AuthController {
         }
     }
 
-    private String getInputFieldErrors(BindingResult bindingResult) {
-        return bindingResult.getFieldErrors()
+    private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
+        return bindingResult.getFieldErrors().stream()
+                .collect(Collectors.groupingBy(
+                        FieldError::getField,
+                        Collectors.mapping(FieldError::getDefaultMessage, Collectors.toList())
+                ))
+                .entrySet()
                 .stream()
-                .map(error -> String.format("%s: %s", error.getField(), error.getDefaultMessage()))
-                .collect(Collectors.joining("; "));
+                .map(entry -> new InputFieldError(entry.getKey(), entry.getValue()))
+                .toList();
     }
 }
