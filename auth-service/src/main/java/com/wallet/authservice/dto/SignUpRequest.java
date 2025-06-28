@@ -65,18 +65,4 @@ public class SignUpRequest {
     )
     @Size(min = 8, message = "Password confirmation can't be less than 2 symbols")
     private String passwordConfirmation;
-
-    @Override
-    public String toString() {
-        return "SignUpRequest{" +
-                "name='" + name + '\'' +
-                ", lastName='" + lastName + '\'' +
-                ", patronymic='" + patronymic + '\'' +
-                ", birthDate='" + birthDate + '\'' +
-                ", phone='" + phone + '\'' +
-                ", email='" + email + '\'' +
-                ", password='" + password + '\'' +
-                ", passwordConfirmation='" + passwordConfirmation + '\'' +
-                '}';
-    }
 }

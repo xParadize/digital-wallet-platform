@@ -3,7 +3,9 @@ package com.wallet.authservice.controller;
 import com.wallet.authservice.dto.ApiResponse;
 import com.wallet.authservice.dto.InputFieldError;
 import com.wallet.authservice.dto.SignUpRequest;
+import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.exception.IncorrectSearchPath;
+import com.wallet.authservice.service.UnverifiedUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
+    private final UnverifiedUserService unverifiedUserService;
 
     @RequestMapping(value = "/**")
     public ResponseEntity<ApiResponse> handleNotFound() {
@@ -38,7 +41,7 @@ public class AuthController {
 
         if (Objects.equals(signUpRequest.getPassword(), signUpRequest.getPasswordConfirmation())) {
             try {
-                System.out.println(signUpRequest);
+                unverifiedUserService.saveUnverifiedUser(signUpRequest);
                 return new ResponseEntity<>(new ApiResponse(true, "Please, confirm your email"), HttpStatus.OK);
             } catch (Exception e) {
                 return new ResponseEntity<>(new ApiResponse(false, "Registration error: " + e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
