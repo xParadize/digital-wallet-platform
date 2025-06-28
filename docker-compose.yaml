@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+  postgres:
+    container_name: "postgres"
+    env_file:
+      - .env
+    image: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/data/postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /data/postgres
+    healthcheck:
+      test: pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  pgadmin:
+    container_name: "pg-admin"
+    env_file:
+      - .env
+    image: dpage/pgadmin4
+    restart: always
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:80/misc/ping || exit -1
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  redis:
+    container_name: "redis"
+    env_file:
+      - .env
+    image: redis:7.2-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    command: redis-server --save 20 1
+    volumes:
+      - cache:/data
+
+  maildev:
+    container_name: "maildev"
+    env_file:
+      - .env
+    image: maildev/maildev
+    restart: unless-stopped
+    environment:
+      - MAILDEV_WEB_PORT=1080
+      - MAILDEV_SMTP_PORT=1025
+    networks:
+      - app-network
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+
+networks:
+  postgres:
+    driver: bridge
+  spring:
+    driver: bridge
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres:
+    driver: local
+  pgadmin:
+    driver: local
+  cache:
+    driver: local
