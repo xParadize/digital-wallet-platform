@@ -3,7 +3,6 @@ package com.wallet.authservice.controller;
 import com.wallet.authservice.dto.ApiResponse;
 import com.wallet.authservice.dto.InputFieldError;
 import com.wallet.authservice.dto.SignUpRequest;
-import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.exception.IncorrectSearchPath;
 import com.wallet.authservice.service.UnverifiedUserService;
 import jakarta.validation.Valid;
