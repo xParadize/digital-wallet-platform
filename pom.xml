@@ -8,6 +8,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>auth-service</module>
+        <module>notification-service</module>
     </modules>
 
     <properties>

@@ -8,6 +8,8 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 
@@ -37,15 +39,11 @@ public class SecurityConfiguration {
                         .requestMatchers("/swagger-ui/**", "/swagger-resources/*", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(manager -> manager.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-                // .authenticationProvider(authenticationProvider())
-                // .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-//                .logout((logout) -> logout
-//                        .logoutUrl("/auth/logout")
-//                        .addLogoutHandler(customLogoutHandler())
-//                        .logoutSuccessHandler((request, response, authentication) ->
-//                                response.setStatus(HttpServletResponse.SC_OK)))
-//                .exceptionHandling(exceptionHandling ->
-//                        exceptionHandling.authenticationEntryPoint(authenticationEntryPoint));
         return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }

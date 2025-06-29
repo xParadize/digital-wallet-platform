@@ -1,0 +1,18 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: notification-service
+  config:
+    import: optional:file:.env[.properties]
+  mail:
+    host: ${MAILDEV_SPRING_MAIL_HOST}
+    port: ${MAILDEV_SPRING_MAIL_PORT}
+    username: ${MAILDEV_SPRING_MAIL_USERNAME}
+    password: ${MAILDEV_SPRING_MAIL_PASSWORD}
+    protocol: smtp
+    properties:
+      mail.transport.protocol: smtp
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true

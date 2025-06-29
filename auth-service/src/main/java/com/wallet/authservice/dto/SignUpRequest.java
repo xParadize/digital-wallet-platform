@@ -1,6 +1,10 @@
 package com.wallet.authservice.dto;
 
-import jakarta.validation.constraints.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -8,6 +12,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 @Getter
 @Setter
 public class SignUpRequest {
+
     @NotEmpty(message = "Field 'name' shouldn't be empty")
     @Pattern(
             regexp = "^[A-Z][a-z]+(?:[ .'-][a-z]+)*$",
@@ -22,7 +27,7 @@ public class SignUpRequest {
             message = "Only Latin letters are allowed and the first letter must be uppercase"
     )
     @Size(min = 2, message = "Lastname can't be less than 2 symbols")
-    private String lastName;
+    private String lastname;
 
     @NotEmpty(message = "Field 'patronymic' shouldn't be empty")
     @Pattern(
@@ -32,6 +37,7 @@ public class SignUpRequest {
     @Size(min = 2, message = "Lastname can't be less than 2 symbols")
     private String patronymic;
 
+    @JsonProperty("birth_date")
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     @Size(min = 10, max = 10, message = "Birth Date can't be more or less than 10 symbols")
     @NotEmpty(message = "Field 'birth date' shouldn't be empty")
@@ -58,6 +64,7 @@ public class SignUpRequest {
     @Size(min = 8, message = "Password can't be less than 2 symbols")
     private String password;
 
+    @JsonProperty("password_confirmation")
     @NotEmpty(message = "Field 'password confirmation' shouldn't be empty")
     @Pattern(
             regexp = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[!@#$%^&*()\\-_=+\\[\\]{}<>])[A-Za-z\\d!@#$%^&*()\\-_=+\\[\\]{}<>]{8,}$",
