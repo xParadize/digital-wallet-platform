@@ -2,6 +2,7 @@ package com.wallet.authservice.mapper;
 
 import com.wallet.authservice.dto.SignUpRequest;
 import com.wallet.authservice.entity.UnverifiedUser;
+import com.wallet.authservice.entity.UserPrototype;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;
 import org.mapstruct.ReportingPolicy;
@@ -10,4 +11,5 @@ import org.mapstruct.ReportingPolicy;
         componentModel = MappingConstants.ComponentModel.SPRING)
 public interface UnverifiedUserMapper {
     UnverifiedUser toEntity(SignUpRequest signUpRequest);
+    UserPrototype toEntity(UnverifiedUser unverifiedUser);
 }
