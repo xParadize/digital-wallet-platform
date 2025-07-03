@@ -3,10 +3,13 @@ package com.wallet.authservice.controller;
 import com.wallet.authservice.dto.ApiResponse;
 import com.wallet.authservice.dto.InputFieldError;
 import com.wallet.authservice.dto.SignUpRequest;
+import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.exception.IncorrectSearchPath;
+import com.wallet.authservice.service.AuthService;
 import com.wallet.authservice.service.UnverifiedUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -22,6 +25,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AuthController {
     private final UnverifiedUserService unverifiedUserService;
+    private final AuthService authService;
+
+    @Value("${unverified-user.ttl.sec}")
+    long unverifiedUserTtl;
 
     @RequestMapping(value = "/**")
     public ResponseEntity<ApiResponse> handleNotFound() {
@@ -36,15 +43,22 @@ public class AuthController {
         }
 
         if (Objects.equals(signUpRequest.getPassword(), signUpRequest.getPasswordConfirmation())) {
-            try {
+            if (unverifiedUserService.existsByEmailOrPhone(signUpRequest.getEmail(), signUpRequest.getPhone())) {
+                return new ResponseEntity<>(new ApiResponse(false, "User with this email address or phone number already exists"), HttpStatus.BAD_REQUEST);
+            } else {
                 unverifiedUserService.saveUnverifiedUser(signUpRequest);
-                return new ResponseEntity<>(new ApiResponse(true, "Please, confirm your email"), HttpStatus.OK);
-            } catch (Exception e) {
-                return new ResponseEntity<>(new ApiResponse(false, "Registration error: " + e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
+                return new ResponseEntity<>(new ApiResponse(true, String.format("Please, confirm your email within %s minutes", unverifiedUserTtl / 60)), HttpStatus.OK);
             }
         } else {
             return new ResponseEntity<>(new ApiResponse(false, "Passwords don't match"), HttpStatus.BAD_REQUEST);
         }
+    }
+
+    @GetMapping("/confirm-email/{code}")
+    public ResponseEntity<?> confirmEmail(@PathVariable("code") String code) {
+        UnverifiedUser unverifiedUser = authService.confirmEmailToken(code);
+        String authResponse = unverifiedUserService.enableUser(unverifiedUser);
+        return ResponseEntity.ok(new ApiResponse(true, authResponse));
     }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {

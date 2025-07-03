@@ -31,3 +31,7 @@ security:
   jwt:
     secret: ${JWT_SECRET}
     expirationMs: 604800000 # 1 week
+
+unverified-user:
+  ttl:
+    sec: 900

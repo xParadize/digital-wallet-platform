@@ -3,5 +3,7 @@
   <component name="AmplicodeJpaIdeaProjectConfig">
     <option name="defaultUnitInitialized" value="true" />
     <option name="renamerInitialized" value="true" />
+    <option name="newEntityIdType" value="UUID" />
+    <option name="newEntityIdStrategy" value="UUID" />
   </component>
 </project>
