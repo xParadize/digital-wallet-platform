@@ -3,6 +3,7 @@ package com.wallet.authservice.service;
 import com.wallet.authservice.entity.UserPrototype;
 import com.wallet.authservice.exception.IncorrectPasswordException;
 import com.wallet.authservice.exception.UserPrototypeNotFoundException;
+import com.wallet.authservice.kafka.AuthKafkaProducer;
 import com.wallet.authservice.repository.UserPrototypeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -16,6 +17,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserPrototypeService {
     private final UserPrototypeRepository userPrototypeRepository;
+    private final PasswordService passwordService;
+    private final AuthKafkaProducer authKafkaProducer;
 
     @Transactional
     public void saveUserPrototype(UserPrototype userPrototype) {
@@ -31,12 +34,12 @@ public class UserPrototypeService {
         return optPassword.orElseThrow(IncorrectPasswordException::new);
     }
 
-    public UUID findByEmail(String email) {
+    public UUID findIdByEmail(String email) {
         Optional<UUID> optUserId = userPrototypeRepository.findIdByEmail(email);
         return optUserId.orElseThrow(() -> new UserPrototypeNotFoundException("User not found."));
     }
 
-    public UserPrototype findById(UUID userId) {
+    public UserPrototype findUserPrototypeById(UUID userId) {
         Optional<UserPrototype> optUserPrototype = userPrototypeRepository.findById(userId);
         return optUserPrototype.orElseThrow(() -> new UserPrototypeNotFoundException("User not found."));
     }
@@ -50,4 +53,9 @@ public class UserPrototypeService {
         };
     }
 
+    @Transactional
+    public void changePassword(String newPassword, String email) {
+        userPrototypeRepository.changePassword(passwordService.encode(newPassword), email);
+        authKafkaProducer.sendPasswordChanged(email, findIdByEmail(email));
+    }
 }

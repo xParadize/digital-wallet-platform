@@ -61,4 +61,24 @@ public class MailSenderService {
         configuration.getTemplate("email_confirmed.ftlh").process(model, writer);
         return writer.getBuffer().toString();
     }
+
+    @Async
+    @SneakyThrows
+    public void sendPasswordChanged(String email) {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+        helper.setSubject("Password changed");
+        helper.setTo(email);
+        String emailContent = getPasswordChanged();
+        helper.setText(emailContent, true);
+        mailSender.send(mimeMessage);
+    }
+
+    @SneakyThrows
+    private String getPasswordChanged() {
+        StringWriter writer = new StringWriter();
+        Map<String, Object> model = new HashMap<>();
+        configuration.getTemplate("password_changed.ftlh").process(model, writer);
+        return writer.getBuffer().toString();
+    }
 }

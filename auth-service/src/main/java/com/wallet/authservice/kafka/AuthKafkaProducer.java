@@ -3,6 +3,7 @@ package com.wallet.authservice.kafka;
 import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.event.EmailConfirmationEvent;
 import com.wallet.authservice.event.EmailConfirmedEvent;
+import com.wallet.authservice.event.PasswordChangedEvent;
 import lombok.AllArgsConstructor;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
@@ -37,6 +38,17 @@ public class AuthKafkaProducer {
         EmailConfirmedEvent event = new EmailConfirmedEvent(email);
         ProducerRecord<String, Object> record = new ProducerRecord<>(
                 "auth.user.email-confirmed",
+                userId.toString(),
+                event
+        );
+        kafkaTemplate.send(record);
+        logEvent(record);
+    }
+
+    public void sendPasswordChanged(String email, UUID userId) {
+        PasswordChangedEvent event = new PasswordChangedEvent(email);
+        ProducerRecord<String, Object> record = new ProducerRecord<>(
+                "auth.user.password-changed",
                 userId.toString(),
                 event
         );

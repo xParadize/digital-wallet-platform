@@ -33,7 +33,7 @@ public class RefreshTokenService {
     @Transactional
     public JwtAuthenticationResponse refreshToken(RefreshTokenRequest refreshTokenRequest) {
         RefreshToken oldRefreshToken = findRefreshTokenByToken(refreshTokenRequest.getRefreshToken());
-        UserPrototype userPrototype = userPrototypeService.findById(oldRefreshToken.getUserId());
+        UserPrototype userPrototype = userPrototypeService.findUserPrototypeById(oldRefreshToken.getUserId());
 
         var accessToken = jwtService.getJwtAccessToken(userPrototype);
         var newRefreshToken = jwtService.getJwtRefreshToken(accessToken);

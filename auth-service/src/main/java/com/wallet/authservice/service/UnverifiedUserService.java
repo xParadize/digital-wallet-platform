@@ -10,7 +10,6 @@ import com.wallet.authservice.kafka.AuthKafkaProducer;
 import com.wallet.authservice.mapper.UnverifiedUserMapper;
 import com.wallet.authservice.repository.UnverifiedUserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +22,7 @@ import java.util.UUID;
 public class UnverifiedUserService {
     private final UnverifiedUserRepository unverifiedUserRepository;
     private final UnverifiedUserMapper unverifiedUserMapper;
-    private final PasswordEncoder passwordEncoder;
+    private final PasswordService passwordService;
     private final AuthKafkaProducer authKafkaProducer;
     private final UnverifiedUserClient unverifiedUserClient;
     private final JwtService jwtService;
@@ -38,7 +37,7 @@ public class UnverifiedUserService {
     @Transactional
     public void saveUnverifiedUser(SignUpRequest signUpRequest) {
         UnverifiedUser unverifiedUser = unverifiedUserMapper.toEntity(signUpRequest);
-        unverifiedUser.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
+        unverifiedUser.setPassword(passwordService.encode(signUpRequest.getPassword()));
         unverifiedUserRepository.save(unverifiedUser);
         authKafkaProducer.sendEmailConfirmation(unverifiedUser);
     }

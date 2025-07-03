@@ -93,10 +93,12 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public JwtAuthenticationResponse getJwtAuthenticationResponse(String accessToken, String refreshToken) {
-        return JwtAuthenticationResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .build();
+    public String extractEmailFromJwt(String jwt) {
+        Claims claims = Jwts.parser()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(jwt)
+                .getBody();
+        return claims.get("email", String.class);
     }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wallet.notificationservice.event.EmailConfirmationEvent;
 import com.wallet.notificationservice.event.EmailConfirmedEvent;
+import com.wallet.notificationservice.event.PasswordChangedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
@@ -31,5 +32,12 @@ public class NotificationService {
     public void consumeEmailConfirmed(String message) throws JsonProcessingException {
         EmailConfirmedEvent event = objectMapper.readValue(message, EmailConfirmedEvent.class);
         mailSenderService.sendEmailConfirmed(event.email());
+    }
+
+    @Transactional
+    @KafkaListener(topics = "auth.user.password-changed", groupId = "digital-wallet-auth")
+    public void consumePasswordChanged(String message) throws JsonProcessingException {
+        PasswordChangedEvent event = objectMapper.readValue(message, PasswordChangedEvent.class);
+        mailSenderService.sendPasswordChanged(event.email());
     }
 }

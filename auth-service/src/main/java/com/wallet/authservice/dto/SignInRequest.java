@@ -13,7 +13,7 @@ public class SignInRequest {
     @Size(min = 5, max = 254, message = "Email should contain from 5 to 254 symbols")
     @NotEmpty(message = "Field 'email' shouldn't be empty")
     @Email(message = "Invalid email")
-    String email;
+    private String email;
 
     @NotEmpty(message = "Field 'password' shouldn't be empty")
     @Pattern(
@@ -21,5 +21,5 @@ public class SignInRequest {
             message = "Password must contain at least 1 uppercase letter, 1 lowercase letter, 1 digit, 1 special symbol, and be at least 8 characters long"
     )
     @Size(min = 8, message = "Password can't be less than 2 symbols")
-    String password;
+    private String password;
 }

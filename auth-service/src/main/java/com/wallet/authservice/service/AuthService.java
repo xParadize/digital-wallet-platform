@@ -11,7 +11,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +24,6 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
-    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public UnverifiedUser confirmEmailToken(String code) {
@@ -34,12 +32,8 @@ public class AuthService {
         return unverifiedUser;
     }
 
-    public boolean matchesPassword(String rawPassword, String encodedPassword) {
-        return passwordEncoder.matches(rawPassword, encodedPassword);
-    }
-
     public JwtAuthenticationResponse signIn(SignInRequest request) {
-        UUID userId = userPrototypeService.findByEmail(request.getEmail());
+        UUID userId = userPrototypeService.findIdByEmail(request.getEmail());
 
         Authentication authentication = authenticationManager
                 .authenticate(new UsernamePasswordAuthenticationToken(userId.toString(), request.getPassword()));
