@@ -25,6 +25,7 @@ public class UnverifiedUserService {
     private final UnverifiedUserClient unverifiedUserClient;
     private final JwtService jwtService;
     private final UserRoleService userRoleService;
+    private final UserPrototypeService userPrototypeService;
 
     public boolean existsByEmailOrPhone(String email, String phone) {
         return unverifiedUserClient.existsByEmailOrPhone(email, phone);
@@ -55,6 +56,7 @@ public class UnverifiedUserService {
 
         UserPrototype userPrototype = unverifiedUserMapper.toEntity(unverifiedUser);
         userPrototype.setRoles(Set.of(Role.ROLE_USER, Role.ROLE_VERIFIED_EMAIL));
+        userPrototypeService.saveUserPrototype(userPrototype);
 
         userRoleService.saveUserRole(userPrototype, Role.ROLE_USER);
         userRoleService.saveUserRole(userPrototype, Role.ROLE_VERIFIED_EMAIL);

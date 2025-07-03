@@ -2,6 +2,7 @@ package com.wallet.authservice.controller;
 
 import com.wallet.authservice.dto.ApiResponse;
 import com.wallet.authservice.dto.InputFieldError;
+import com.wallet.authservice.dto.SignInRequest;
 import com.wallet.authservice.dto.SignUpRequest;
 import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.exception.IncorrectSearchPath;
@@ -60,6 +61,16 @@ public class AuthController {
         String authResponse = unverifiedUserService.enableUser(unverifiedUser);
         return ResponseEntity.ok(new ApiResponse(true, authResponse));
     }
+
+//    @PostMapping("/sign-in")
+//    public ResponseEntity<?> signIn(@RequestBody @Valid SignInRequest request, BindingResult bindingResult) {
+//        if (bindingResult.hasFieldErrors()) {
+//            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
+//            return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
+//        }
+//        var response = authService.signIn(request);
+//        return ResponseEntity.ok(response);
+//    }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
         return bindingResult.getFieldErrors().stream()

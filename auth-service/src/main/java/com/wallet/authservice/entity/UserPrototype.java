@@ -19,17 +19,18 @@ import java.util.stream.Collectors;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@Table(name = "user_prototype")
 public class UserPrototype implements UserDetails {
 
     @Id
     private UUID id;
-    private String name;
-    private String lastname;
-    private String patronymic;
-    private String birthDate;
     private String phone;
     private String email;
     private String password;
+
+    // email -> bd repo -> y/n
+    // y => findUserIdByEmail -> auth
+    // n => exception "no email"
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
