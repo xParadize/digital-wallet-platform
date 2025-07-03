@@ -36,6 +36,11 @@ public class UserPrototypeService {
         return optUserId.orElseThrow(() -> new UserPrototypeNotFoundException("User not found."));
     }
 
+    public UserPrototype findById(UUID userId) {
+        Optional<UserPrototype> optUserPrototype = userPrototypeRepository.findById(userId);
+        return optUserPrototype.orElseThrow(() -> new UserPrototypeNotFoundException("User not found."));
+    }
+
     @Transactional(readOnly = true)
     public UserDetailsService userDetailsService() {
         return username -> {

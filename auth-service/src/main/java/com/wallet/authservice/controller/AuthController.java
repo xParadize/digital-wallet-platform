@@ -1,12 +1,10 @@
 package com.wallet.authservice.controller;
 
-import com.wallet.authservice.dto.ApiResponse;
-import com.wallet.authservice.dto.InputFieldError;
-import com.wallet.authservice.dto.SignInRequest;
-import com.wallet.authservice.dto.SignUpRequest;
+import com.wallet.authservice.dto.*;
 import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.exception.IncorrectSearchPath;
 import com.wallet.authservice.service.AuthService;
+import com.wallet.authservice.service.RefreshTokenService;
 import com.wallet.authservice.service.UnverifiedUserService;
 import com.wallet.authservice.service.UserPrototypeService;
 import jakarta.validation.Valid;
@@ -29,6 +27,7 @@ public class AuthController {
     private final UnverifiedUserService unverifiedUserService;
     private final AuthService authService;
     private final UserPrototypeService userPrototypeService;
+    private final RefreshTokenService refreshTokenService;
 
     @Value("${unverified-user.ttl.sec}")
     long unverifiedUserTtl;
@@ -85,6 +84,11 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/refresh-token")
+    public ResponseEntity<?> refreshToken(@RequestBody RefreshTokenRequest refreshTokenRequest) {
+        JwtAuthenticationResponse response = refreshTokenService.refreshToken(refreshTokenRequest);
+        return ResponseEntity.ok(response);
+    }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
         return bindingResult.getFieldErrors().stream()
