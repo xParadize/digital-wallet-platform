@@ -28,10 +28,6 @@ public class UserPrototype implements UserDetails {
     private String email;
     private String password;
 
-    // email -> bd repo -> y/n
-    // y => findUserIdByEmail -> auth
-    // n => exception "no email"
-
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)

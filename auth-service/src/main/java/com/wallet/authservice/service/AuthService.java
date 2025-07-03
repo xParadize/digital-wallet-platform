@@ -2,9 +2,16 @@ package com.wallet.authservice.service;
 
 import com.wallet.authservice.dto.JwtAuthenticationResponse;
 import com.wallet.authservice.dto.SignInRequest;
+import com.wallet.authservice.entity.RefreshToken;
 import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.exception.ConfirmationTokenException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +21,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService {
     private final UnverifiedUserService unverifiedUserService;
+    private final UserPrototypeService userPrototypeService;
+    private final AuthenticationManager authenticationManager;
+    private final RefreshTokenService refreshTokenService;
+    private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public UnverifiedUser confirmEmailToken(String code) {
@@ -22,22 +34,25 @@ public class AuthService {
         return unverifiedUser;
     }
 
-//    public JwtAuthenticationResponse signIn(SignInRequest request) {
-//        Authentication authentication = authenticationManager
-//                .authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
-//        SecurityContextHolder.getContext().setAuthentication(authentication);
-//        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-//        String jwt = jwtService.generateToken(userDetails);
-//        User tempUser = userService.findByUsername(request.getUsername());
-//        RefreshToken userRefreshToken = refreshTokenService.findRefreshTokenByUserId(tempUser.getId());
-//        var refreshToken = userRefreshToken.getToken();
-//
-//        JwtAuthenticationResponse response = JwtAuthenticationResponse.builder()
-//                .accessToken(jwt)
-//                .refreshToken(refreshToken)
-//                .build();
-//
-//        return response;
-//    }
+    public boolean matchesPassword(String rawPassword, String encodedPassword) {
+        return passwordEncoder.matches(rawPassword, encodedPassword);
+    }
 
+    public JwtAuthenticationResponse signIn(SignInRequest request) {
+        UUID userId = userPrototypeService.findByEmail(request.getEmail());
+
+        Authentication authentication = authenticationManager
+                .authenticate(new UsernamePasswordAuthenticationToken(userId.toString(), request.getPassword()));
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String jwt = jwtService.getJwtAccessToken(userDetails);
+
+        RefreshToken userRefreshToken = refreshTokenService.findRefreshTokenByUserId(userId);
+
+        return JwtAuthenticationResponse.builder()
+                .accessToken(jwt)
+                .refreshToken(userRefreshToken.getToken())
+                .build();
+    }
 }

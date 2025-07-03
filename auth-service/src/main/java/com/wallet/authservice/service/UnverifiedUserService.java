@@ -1,6 +1,7 @@
 package com.wallet.authservice.service;
 
 import com.wallet.authservice.dto.SignUpRequest;
+import com.wallet.authservice.entity.RefreshToken;
 import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.entity.UserPrototype;
 import com.wallet.authservice.enums.Role;
@@ -13,7 +14,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +29,7 @@ public class UnverifiedUserService {
     private final JwtService jwtService;
     private final UserRoleService userRoleService;
     private final UserPrototypeService userPrototypeService;
+    private final RefreshTokenService refreshTokenService;
 
     public boolean existsByEmailOrPhone(String email, String phone) {
         return unverifiedUserClient.existsByEmailOrPhone(email, phone);
@@ -53,7 +57,13 @@ public class UnverifiedUserService {
     public String enableUser(UnverifiedUser unverifiedUser) {
         saveUser(unverifiedUser);
         deleteUnverifiedUserById(unverifiedUser.getId());
+        UserPrototype userPrototype = createUserPrototype(unverifiedUser);
+        generateTokensAndSave(userPrototype);
+        notifyEmailConfirmed(unverifiedUser);
+        return jwtService.getJwtAccessToken(userPrototype);
+    }
 
+    private UserPrototype createUserPrototype(UnverifiedUser unverifiedUser) {
         UserPrototype userPrototype = unverifiedUserMapper.toEntity(unverifiedUser);
         userPrototype.setRoles(Set.of(Role.ROLE_USER, Role.ROLE_VERIFIED_EMAIL));
         userPrototypeService.saveUserPrototype(userPrototype);
@@ -61,9 +71,24 @@ public class UnverifiedUserService {
         userRoleService.saveUserRole(userPrototype, Role.ROLE_USER);
         userRoleService.saveUserRole(userPrototype, Role.ROLE_VERIFIED_EMAIL);
 
-        authKafkaProducer.sendEmailConfirmed(unverifiedUser.getEmail(), unverifiedUser.getId());
+        return userPrototype;
+    }
 
-        return jwtService.getJwtAccessToken(userPrototype);
+    @Transactional
+    public void generateTokensAndSave(UserPrototype userPrototype) {
+        String accessToken = jwtService.getJwtAccessToken(userPrototype);
+        String refreshToken = jwtService.getJwtRefreshToken(accessToken);
+
+        RefreshToken refreshTokenToSave = RefreshToken.builder()
+                .userId(userPrototype.getId())
+                .token(refreshToken)
+                .build();
+
+        refreshTokenService.saveRefreshToken(refreshTokenToSave);
+    }
+
+    private void notifyEmailConfirmed(UnverifiedUser unverifiedUser) {
+        authKafkaProducer.sendEmailConfirmed(unverifiedUser.getEmail(), unverifiedUser.getId());
     }
 
     private void saveUser(UnverifiedUser unverifiedUser) {

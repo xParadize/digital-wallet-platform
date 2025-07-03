@@ -8,6 +8,7 @@ import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.exception.IncorrectSearchPath;
 import com.wallet.authservice.service.AuthService;
 import com.wallet.authservice.service.UnverifiedUserService;
+import com.wallet.authservice.service.UserPrototypeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 public class AuthController {
     private final UnverifiedUserService unverifiedUserService;
     private final AuthService authService;
+    private final UserPrototypeService userPrototypeService;
 
     @Value("${unverified-user.ttl.sec}")
     long unverifiedUserTtl;
@@ -36,23 +38,24 @@ public class AuthController {
         throw new IncorrectSearchPath();
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody @Valid SignUpRequest signUpRequest, BindingResult bindingResult) {
+    @PostMapping("/sign-up")
+    public ResponseEntity<?> signUp(@RequestBody @Valid SignUpRequest signUpRequest, BindingResult bindingResult) {
         if (bindingResult.hasFieldErrors()) {
             List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
             return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
         }
 
-        if (Objects.equals(signUpRequest.getPassword(), signUpRequest.getPasswordConfirmation())) {
-            if (unverifiedUserService.existsByEmailOrPhone(signUpRequest.getEmail(), signUpRequest.getPhone())) {
-                return new ResponseEntity<>(new ApiResponse(false, "User with this email address or phone number already exists"), HttpStatus.BAD_REQUEST);
-            } else {
-                unverifiedUserService.saveUnverifiedUser(signUpRequest);
-                return new ResponseEntity<>(new ApiResponse(true, String.format("Please, confirm your email within %s minutes", unverifiedUserTtl / 60)), HttpStatus.OK);
-            }
-        } else {
+        if (!Objects.equals(signUpRequest.getPassword(), signUpRequest.getPasswordConfirmation())) {
             return new ResponseEntity<>(new ApiResponse(false, "Passwords don't match"), HttpStatus.BAD_REQUEST);
         }
+
+        if (unverifiedUserService.existsByEmailOrPhone(signUpRequest.getEmail(), signUpRequest.getPhone())) {
+            return new ResponseEntity<>(new ApiResponse(false, "User with this email address or phone number already exists"), HttpStatus.BAD_REQUEST);
+        }
+
+        unverifiedUserService.saveUnverifiedUser(signUpRequest);
+        String message = String.format("Please, confirm your email within %s minutes", unverifiedUserTtl / 60);
+        return new ResponseEntity<>(new ApiResponse(true, message), HttpStatus.OK);
     }
 
     @GetMapping("/confirm-email/{code}")
@@ -62,15 +65,26 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponse(true, authResponse));
     }
 
-//    @PostMapping("/sign-in")
-//    public ResponseEntity<?> signIn(@RequestBody @Valid SignInRequest request, BindingResult bindingResult) {
-//        if (bindingResult.hasFieldErrors()) {
-//            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
-//            return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
-//        }
-//        var response = authService.signIn(request);
-//        return ResponseEntity.ok(response);
-//    }
+    @PostMapping("/sign-in")
+    public ResponseEntity<?> signIn(@RequestBody @Valid SignInRequest signInRequest, BindingResult bindingResult) {
+        if (bindingResult.hasFieldErrors()) {
+            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
+            return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
+        }
+
+        if (!userPrototypeService.existsByEmail(signInRequest.getEmail())) {
+            return new ResponseEntity<>(new ApiResponse(false, "User with this email doesn't exist"), HttpStatus.BAD_REQUEST);
+        }
+
+        String encodedPassword = userPrototypeService.findPasswordByEmail(signInRequest.getEmail());
+        if (!authService.matchesPassword(signInRequest.getPassword(), encodedPassword)) {
+            return new ResponseEntity<>(new ApiResponse(false, "Incorrect password"), HttpStatus.BAD_REQUEST);
+        }
+
+        var response = authService.signIn(signInRequest);
+        return ResponseEntity.ok(response);
+    }
+
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
         return bindingResult.getFieldErrors().stream()

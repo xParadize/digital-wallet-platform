@@ -2,6 +2,7 @@ package com.wallet.authservice.controller;
 
 import com.wallet.authservice.dto.ApiResponse;
 import com.wallet.authservice.exception.ConfirmationTokenException;
+import com.wallet.authservice.exception.IncorrectPasswordException;
 import com.wallet.authservice.exception.IncorrectSearchPath;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,5 +28,12 @@ public class AuthControllerAdvice {
     public ResponseEntity<ApiResponse> handleConfirmationTokenException() {
         ApiResponse response = new ApiResponse(false, "The code has expired. Request a new registration code.");
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(IncorrectPasswordException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ApiResponse> handleIncorrectPasswordException() {
+        ApiResponse response = new ApiResponse(false, "The password is incorrect.");
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 }
