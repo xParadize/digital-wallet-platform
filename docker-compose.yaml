@@ -82,6 +82,7 @@ services:
         max-size: "1m"
 
   kafka-1:
+    container_name: "kafka-1"
     env_file:
       - .env
     image: bitnami/kafka:latest
@@ -103,6 +104,7 @@ services:
       - ${KAFKA_LOG_DIR_1}:/bitnami/kafka
 
   kafka-2:
+    container_name: "kafka-2"
     env_file:
       - .env
     image: bitnami/kafka:latest
@@ -124,6 +126,7 @@ services:
       - ${KAFKA_LOG_DIR_2}:/bitnami/kafka
 
   kafka-3:
+    container_name: "kafka-3"
     env_file:
       - .env
     image: bitnami/kafka:latest
@@ -145,6 +148,7 @@ services:
       - ${KAFKA_LOG_DIR_3}:/bitnami/kafka
 
   kafka-ui:
+    container_name: "kafka-ui"
     env_file:
       - .env
     image: provectuslabs/kafka-ui:latest
