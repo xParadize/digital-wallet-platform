@@ -1,5 +1,6 @@
 package com.wallet.notificationservice.service;
 
+import com.wallet.notificationservice.event.CardLinkedEvent;
 import freemarker.template.Configuration;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +11,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.StringWriter;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,6 +22,7 @@ import java.util.UUID;
 public class MailSenderService {
     private final Configuration configuration;
     private final JavaMailSender mailSender;
+    private StringWriter writer;
 
     @Async
     @SneakyThrows
@@ -79,6 +83,31 @@ public class MailSenderService {
         StringWriter writer = new StringWriter();
         Map<String, Object> model = new HashMap<>();
         configuration.getTemplate("password_changed.ftlh").process(model, writer);
+        return writer.getBuffer().toString();
+    }
+
+    @Async
+    @SneakyThrows
+    public void sendCardLinked(CardLinkedEvent event) {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+        helper.setSubject("Card linked successfully");
+        helper.setTo(event.email());
+        String emailContent = getCardLinked(event);
+        helper.setText(emailContent, true);
+        mailSender.send(mimeMessage);
+    }
+
+    @SneakyThrows
+    private String getCardLinked(CardLinkedEvent event) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH);
+        StringWriter writer = new StringWriter();
+        Map<String, Object> model = new HashMap<>();
+        model.put("card_number", event.cardNumber());
+        model.put("issuer", event.cardIssuer());
+        model.put("scheme", event.cardScheme());
+        model.put("linked_at", event.linkedAt().format(formatter));
+        configuration.getTemplate("card_linked.ftlh").process(model, writer);
         return writer.getBuffer().toString();
     }
 }

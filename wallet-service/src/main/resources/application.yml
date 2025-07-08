@@ -1,0 +1,33 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: wallet-service
+  config:
+    import: optional:file:.env[.properties]
+#  cache:
+#    type: redis
+#    cache-names: redis-cache
+#  data:
+#    redis:
+#      host: ${REDIS_HOST}
+#      port: ${REDIS_PORT}
+#      password: ${REDIS_PASSWORD}
+#  datasource:
+#    username: ${POSTGRES_USERNAME}
+#    url: jdbc:postgresql://localhost:5432/auth-service
+#    password: ${POSTGRES_PASSWORD}
+#  jpa:
+#    properties:
+#      hibernate:
+#        dialect: org.hibernate.dialect.PostgreSQLDialect
+#        format_sql: false
+#    hibernate:
+#      ddl-auto: none
+#    show-sql: false
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    expirationMs: 604800000 # 1 week

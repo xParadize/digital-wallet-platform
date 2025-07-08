@@ -2,6 +2,7 @@ package com.wallet.notificationservice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wallet.notificationservice.event.CardLinkedEvent;
 import com.wallet.notificationservice.event.EmailConfirmationEvent;
 import com.wallet.notificationservice.event.EmailConfirmedEvent;
 import com.wallet.notificationservice.event.PasswordChangedEvent;
@@ -39,5 +40,12 @@ public class NotificationService {
     public void consumePasswordChanged(String message) throws JsonProcessingException {
         PasswordChangedEvent event = objectMapper.readValue(message, PasswordChangedEvent.class);
         mailSenderService.sendPasswordChanged(event.email());
+    }
+
+    @Transactional
+    @KafkaListener(topics = "card.linked", groupId = "digital-wallet-card")
+    public void consumeCardLinked(String message) throws JsonProcessingException {
+        CardLinkedEvent event = objectMapper.readValue(message, CardLinkedEvent.class);
+        mailSenderService.sendCardLinked(event);
     }
 }

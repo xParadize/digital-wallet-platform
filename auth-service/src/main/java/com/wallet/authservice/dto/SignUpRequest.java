@@ -48,7 +48,7 @@ public class SignUpRequest {
             regexp = "^((8|\\+7)[\\- ]?)?(\\(?\\d{3}\\)?[\\- ]?)?[\\d\\- ]{7,10}$",
             message = "Invalid phone number"
     )
-    @Size(min = 7, message = "Phone number can't be less than 2 symbols")
+    @Size(min = 7, message = "Phone number can't be less than 7 symbols")
     private String phone;
 
     @Size(min = 5, max = 254, message = "Email should contain from 5 to 254 symbols")
