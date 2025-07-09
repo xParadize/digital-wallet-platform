@@ -2,6 +2,7 @@ package com.wallet.walletservice.controller;
 
 import com.wallet.walletservice.dto.AddCardDto;
 import com.wallet.walletservice.dto.ApiResponse;
+import com.wallet.walletservice.dto.CardPreviewDto;
 import com.wallet.walletservice.dto.InputFieldError;
 import com.wallet.walletservice.exception.IncorrectSearchPath;
 import com.wallet.walletservice.service.JwtService;
@@ -56,6 +57,13 @@ public class WalletController {
         walletService.saveCard(addCardDto, userId, email);
 
         return new ResponseEntity<>(new ApiResponse(true, "The request to add the card has been successfully sent. Expect an email notification after checking the data"), HttpStatus.OK);
+    }
+
+    @GetMapping("/cards")
+    public ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = authorizationHeader.replace("Bearer ", "");
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+        return new ResponseEntity<>(walletService.getLinkedCards(userId), HttpStatus.OK);
     }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {

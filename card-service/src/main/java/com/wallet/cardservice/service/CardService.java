@@ -1,8 +1,10 @@
 package com.wallet.cardservice.service;
 
 import com.wallet.cardservice.dto.CardMeta;
+import com.wallet.cardservice.dto.CardPreviewDto;
 import com.wallet.cardservice.dto.SaveCardDto;
 import com.wallet.cardservice.entity.Card;
+import com.wallet.cardservice.enums.CardType;
 import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.CardMapper;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -22,6 +25,20 @@ public class CardService {
     private final CardMapper cardMapper;
     private final CardInfoCollector cardInfoCollector;
     private final CardKafkaProducer cardKafkaProducer;
+
+    public List<CardPreviewDto> getLinkedCards(UUID userId) {
+        return cardRepository.findAllByUserId(userId).stream()
+                .map(card -> CardPreviewDto.builder()
+                        .maskedCardNumber(maskCardNumber(card.getNumber()))
+                        .issuer(card.getCardIssuer())
+                        .scheme(card.getCardScheme())
+                        .cardType(CardType.DEBIT)
+                        .isFrozen(false)
+                        .isBlocked(false)
+                        .balance(card.getMoney())
+                        .build())
+                .toList();
+    }
 
     @Transactional
     public void saveCard(SaveCardDto saveCardDto) {
