@@ -1,5 +1,6 @@
 package com.wallet.walletservice.feign;
 
+import com.wallet.walletservice.dto.CardDetailsDto;
 import com.wallet.walletservice.dto.CardPreviewDto;
 import com.wallet.walletservice.dto.SaveCardDto;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -26,4 +27,7 @@ public interface WalletClient {
 
     @GetMapping("/api/v1/cards")
     ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestParam("userId") UUID userId);
+
+    @GetMapping("/api/v1/card")
+    ResponseEntity<CardDetailsDto> getLinkedCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId);
 }

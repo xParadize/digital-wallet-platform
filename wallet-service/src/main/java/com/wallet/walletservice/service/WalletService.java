@@ -1,10 +1,13 @@
 package com.wallet.walletservice.service;
 
 import com.wallet.walletservice.dto.AddCardDto;
+import com.wallet.walletservice.dto.CardDetailsDto;
 import com.wallet.walletservice.dto.CardPreviewDto;
 import com.wallet.walletservice.dto.SaveCardDto;
+import com.wallet.walletservice.exception.CardAccessDeniedException;
 import com.wallet.walletservice.feign.WalletClient;
 import com.wallet.walletservice.mapper.CardDtoMapper;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,5 +31,13 @@ public class WalletService {
 
     public List<CardPreviewDto> getLinkedCards(UUID userId) {
         return walletClient.getLinkedCards(userId).getBody();
+    }
+
+    public CardDetailsDto getLinkedCard(String number, UUID userId) {
+        try {
+            return walletClient.getLinkedCard(number, userId).getBody();
+        } catch (FeignException.Forbidden ex) {
+            throw new CardAccessDeniedException("Access to the card is forbidden");
+        }
     }
 }

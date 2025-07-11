@@ -1,11 +1,14 @@
 package com.wallet.userservice.controller;
 
+import com.wallet.userservice.dto.HolderDto;
 import com.wallet.userservice.entity.UnverifiedUser;
 import com.wallet.userservice.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/user")
@@ -22,6 +25,11 @@ public class UserApiController {
     @GetMapping("/exists")
     public boolean userExists(@RequestParam("email") String email, @RequestParam("phone") String phone) {
         return userService.existsByEmailOrPhone(email, phone);
+    }
+
+    @GetMapping("/{id}/holder")
+    public HolderDto getHolder(@PathVariable("id") UUID userId) {
+        return userService.getHolder(userId);
     }
 }
 

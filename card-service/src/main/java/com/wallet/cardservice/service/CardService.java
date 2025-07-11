@@ -1,13 +1,14 @@
 package com.wallet.cardservice.service;
 
-import com.wallet.cardservice.dto.CardMeta;
-import com.wallet.cardservice.dto.CardPreviewDto;
-import com.wallet.cardservice.dto.SaveCardDto;
+import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.enums.CardType;
 import com.wallet.cardservice.event.CardLinkedEvent;
+import com.wallet.cardservice.exception.CardNotFoundException;
+import com.wallet.cardservice.feign.CardClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.CardMapper;
+import com.wallet.cardservice.mapper.HolderMapper;
 import com.wallet.cardservice.repository.CardRepository;
 import com.wallet.cardservice.util.CardInfoCollector;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,8 @@ public class CardService {
     private final CardMapper cardMapper;
     private final CardInfoCollector cardInfoCollector;
     private final CardKafkaProducer cardKafkaProducer;
+    private final CardClient cardClient;
+    private final HolderMapper holderMapper;
 
     public List<CardPreviewDto> getLinkedCards(UUID userId) {
         return cardRepository.findAllByUserId(userId).stream()
@@ -38,6 +41,35 @@ public class CardService {
                         .balance(card.getMoney())
                         .build())
                 .toList();
+    }
+
+    // TODO: recentTransactions - сделать функционал
+    public CardDetailsDto getLinkedCard(String number, UUID userId) {
+        Card card = cardRepository.getCardByNumber(number).orElseThrow(() -> new CardNotFoundException("Card not found"));
+        return CardDetailsDto.builder()
+                .balance(card.getMoney())
+                .issuer(card.getCardIssuer())
+                .scheme(card.getCardScheme())
+                .cardType(CardType.DEBIT)
+                .holder(getHolder(userId))
+                .secretDetails(getCardSecretDetails(card))
+                .isFrozen(false)
+                .isBlocked(false)
+                .recentTransactions(List.of())
+                .build();
+    }
+
+    private Holder getHolder(UUID userId) {
+        HolderDto dto = cardClient.getHolder(userId).getBody();
+        return holderMapper.toEntity(dto);
+    }
+
+    private CardSecretDetails getCardSecretDetails(Card card) {
+        return new CardSecretDetails(
+                card.getNumber(),
+                card.getExpirationDate(),
+                card.getCvv()
+        );
     }
 
     @Transactional
@@ -64,6 +96,9 @@ public class CardService {
     }
 
     public boolean isCardLinkedToUser(String cardNumber, UUID userId) {
-        return cardRepository.getCardByNumber(cardNumber).isPresent();
+        return cardRepository.getCardByNumber(cardNumber)
+                .map(card -> card.getUserId().equals(userId))
+                .orElse(false);
     }
+
 }

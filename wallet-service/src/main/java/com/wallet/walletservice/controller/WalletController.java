@@ -1,9 +1,6 @@
 package com.wallet.walletservice.controller;
 
-import com.wallet.walletservice.dto.AddCardDto;
-import com.wallet.walletservice.dto.ApiResponse;
-import com.wallet.walletservice.dto.CardPreviewDto;
-import com.wallet.walletservice.dto.InputFieldError;
+import com.wallet.walletservice.dto.*;
 import com.wallet.walletservice.exception.IncorrectSearchPath;
 import com.wallet.walletservice.service.JwtService;
 import com.wallet.walletservice.service.WalletService;
@@ -64,6 +61,14 @@ public class WalletController {
         String jwt = authorizationHeader.replace("Bearer ", "");
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
         return new ResponseEntity<>(walletService.getLinkedCards(userId), HttpStatus.OK);
+    }
+
+    @GetMapping("/cards/{number}")
+    public ResponseEntity<CardDetailsDto> getLinkedCard(@PathVariable("number") String number,
+                                                        @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = authorizationHeader.replace("Bearer ", "");
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+        return new ResponseEntity<>(walletService.getLinkedCard(number, userId), HttpStatus.OK);
     }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
