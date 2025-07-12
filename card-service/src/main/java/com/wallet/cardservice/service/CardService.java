@@ -122,6 +122,14 @@ public class CardService {
         cardKafkaProducer.sendCardUnfrozenEvent(maskCardNumber(number), email, userId);
     }
 
+    @Transactional
+    public void block(String number, String email, UUID userId) {
+        Card card = getCardByNumber(number);
+        card.setBlocked(true);
+        cardRepository.save(card);
+        cardKafkaProducer.sendCardBlockedEvent(maskCardNumber(number), email, userId);
+    }
+
     public CardStatusAction convertStringToCardStatusAction(String inputString) {
         try {
             return CardStatusAction.valueOf(inputString.toUpperCase());

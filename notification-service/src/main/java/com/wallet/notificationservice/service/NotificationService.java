@@ -59,4 +59,11 @@ public class NotificationService {
         CardUnfrozenEvent event = objectMapper.readValue(message, CardUnfrozenEvent.class);
         mailSenderService.sendCardUnfrozen(event);
     }
+
+    @Transactional
+    @KafkaListener(topics = "card.blocked", groupId = "digital-wallet-card")
+    public void consumeCardBlocked(String message) throws JsonProcessingException {
+        CardBlockedEvent event = objectMapper.readValue(message, CardBlockedEvent.class);
+        mailSenderService.sendCardBlocked(event);
+    }
 }

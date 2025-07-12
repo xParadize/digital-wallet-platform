@@ -1,5 +1,6 @@
 package com.wallet.notificationservice.service;
 
+import com.wallet.notificationservice.event.CardBlockedEvent;
 import com.wallet.notificationservice.event.CardFrozenEvent;
 import com.wallet.notificationservice.event.CardLinkedEvent;
 import com.wallet.notificationservice.event.CardUnfrozenEvent;
@@ -156,6 +157,29 @@ public class MailSenderService {
         model.put("card_number", event.cardNumber());
         model.put("unfrozen_at", event.unfrozenAt().format(formatter));
         configuration.getTemplate("card_unfrozen.ftlh").process(model, writer);
+        return writer.getBuffer().toString();
+    }
+
+    @Async
+    @SneakyThrows
+    public void sendCardBlocked(CardBlockedEvent event) {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+        helper.setSubject("Card blocked successfully");
+        helper.setTo(event.email());
+        String emailContent = getCardBlocked(event);
+        helper.setText(emailContent, true);
+        mailSender.send(mimeMessage);
+    }
+
+    @SneakyThrows
+    private String getCardBlocked(CardBlockedEvent event) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH);
+        StringWriter writer = new StringWriter();
+        Map<String, Object> model = new HashMap<>();
+        model.put("card_number", event.cardNumber());
+        model.put("blocked_at", event.blockedAt().format(formatter));
+        configuration.getTemplate("card_blocked.ftlh").process(model, writer);
         return writer.getBuffer().toString();
     }
 }

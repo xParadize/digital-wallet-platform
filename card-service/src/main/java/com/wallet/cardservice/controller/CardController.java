@@ -45,12 +45,17 @@ public class CardController {
                 if (!card.isFrozen()) throw new CardStatusActionException("The card isn't frozen");
                 cardService.unfreeze(number, email, userId);
             }
+            case BLOCK -> {
+                if (card.isBlocked()) throw new CardStatusActionException("The card is already blocked");
+                cardService.block(number, email, userId);
+            }
             default -> throw new CardStatusActionException("Unsupported action: " + dto.statusAction());
         }
 
         String actionMessage = switch (action) {
             case FREEZE -> "The card was successfully frozen";
             case UNFREEZE -> "The card was successfully unfrozen";
+            case BLOCK -> "The card was successfully blocked";
         };
 
         return ResponseEntity.ok(new ApiResponse(true, actionMessage));

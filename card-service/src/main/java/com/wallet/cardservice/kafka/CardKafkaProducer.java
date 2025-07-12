@@ -1,5 +1,6 @@
 package com.wallet.cardservice.kafka;
 
+import com.wallet.cardservice.event.CardBlockedEvent;
 import com.wallet.cardservice.event.CardFrozenEvent;
 import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.event.CardUnfrozenEvent;
@@ -44,6 +45,17 @@ public class CardKafkaProducer {
         CardUnfrozenEvent event = new CardUnfrozenEvent(email, number, LocalDateTime.now());
         ProducerRecord<String, Object> record = new ProducerRecord<>(
                 "card.unfrozen",
+                userId.toString(),
+                event
+        );
+        kafkaTemplate.send(record);
+        logEvent(record);
+    }
+
+    public void sendCardBlockedEvent(String number, String email, UUID userId) {
+        CardBlockedEvent event = new CardBlockedEvent(email, number, LocalDateTime.now());
+        ProducerRecord<String, Object> record = new ProducerRecord<>(
+                "card.blocked",
                 userId.toString(),
                 event
         );
