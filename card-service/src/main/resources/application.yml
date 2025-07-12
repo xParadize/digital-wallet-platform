@@ -18,3 +18,8 @@ spring:
     hibernate:
       ddl-auto: none
     show-sql: false
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    expirationMs: 604800000 # 1 week

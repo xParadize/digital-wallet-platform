@@ -1,12 +1,17 @@
 package com.wallet.cardservice.kafka;
 
+import com.wallet.cardservice.event.CardFrozenEvent;
 import com.wallet.cardservice.event.CardLinkedEvent;
+import com.wallet.cardservice.event.CardUnfrozenEvent;
 import lombok.AllArgsConstructor;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Component
 @AllArgsConstructor
@@ -18,6 +23,28 @@ public class CardKafkaProducer {
         ProducerRecord<String, Object> record = new ProducerRecord<>(
                 "card.linked",
                 event.userId().toString(),
+                event
+        );
+        kafkaTemplate.send(record);
+        logEvent(record);
+    }
+
+    public void sendCardFrozenEvent(String number, String email, UUID userId) {
+        CardFrozenEvent event = new CardFrozenEvent(email, number, LocalDateTime.now());
+        ProducerRecord<String, Object> record = new ProducerRecord<>(
+                "card.frozen",
+                userId.toString(),
+                event
+        );
+        kafkaTemplate.send(record);
+        logEvent(record);
+    }
+
+    public void sendCardUnfrozenEvent(String number, String email, UUID userId) {
+        CardUnfrozenEvent event = new CardUnfrozenEvent(email, number, LocalDateTime.now());
+        ProducerRecord<String, Object> record = new ProducerRecord<>(
+                "card.unfrozen",
+                userId.toString(),
                 event
         );
         kafkaTemplate.send(record);

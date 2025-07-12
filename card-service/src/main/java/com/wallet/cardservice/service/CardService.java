@@ -2,9 +2,11 @@ package com.wallet.cardservice.service;
 
 import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.entity.Card;
+import com.wallet.cardservice.enums.CardStatusAction;
 import com.wallet.cardservice.enums.CardType;
 import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.exception.CardNotFoundException;
+import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.feign.CardClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.CardMapper;
@@ -43,7 +45,6 @@ public class CardService {
                 .toList();
     }
 
-    // TODO: recentTransactions - сделать функционал
     public CardDetailsDto getLinkedCard(String number, UUID userId) {
         Card card = cardRepository.getCardByNumber(number).orElseThrow(() -> new CardNotFoundException("Card not found"));
         return CardDetailsDto.builder()
@@ -101,4 +102,31 @@ public class CardService {
                 .orElse(false);
     }
 
+    public Card getCardByNumber(String number) {
+        return cardRepository.getCardByNumber(number).orElseThrow(() -> new CardNotFoundException("Card not found"));
+    }
+
+    @Transactional
+    public void freeze(String number, String email, UUID userId) {
+        Card card = getCardByNumber(number);
+        card.setFrozen(true);
+        cardRepository.save(card);
+        cardKafkaProducer.sendCardFrozenEvent(maskCardNumber(number), email, userId);
+    }
+
+    @Transactional
+    public void unfreeze(String number, String email, UUID userId) {
+        Card card = getCardByNumber(number);
+        card.setFrozen(false);
+        cardRepository.save(card);
+        cardKafkaProducer.sendCardUnfrozenEvent(maskCardNumber(number), email, userId);
+    }
+
+    public CardStatusAction convertStringToCardStatusAction(String inputString) {
+        try {
+            return CardStatusAction.valueOf(inputString.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new CardStatusActionException("Invalid card action: " + inputString);
+        }
+    }
 }

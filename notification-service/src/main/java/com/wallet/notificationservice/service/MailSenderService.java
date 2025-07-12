@@ -1,6 +1,8 @@
 package com.wallet.notificationservice.service;
 
+import com.wallet.notificationservice.event.CardFrozenEvent;
 import com.wallet.notificationservice.event.CardLinkedEvent;
+import com.wallet.notificationservice.event.CardUnfrozenEvent;
 import freemarker.template.Configuration;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -108,6 +110,52 @@ public class MailSenderService {
         model.put("scheme", event.cardScheme());
         model.put("linked_at", event.linkedAt().format(formatter));
         configuration.getTemplate("card_linked.ftlh").process(model, writer);
+        return writer.getBuffer().toString();
+    }
+
+    @Async
+    @SneakyThrows
+    public void sendCardFrozen(CardFrozenEvent event) {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+        helper.setSubject("Card frozen successfully");
+        helper.setTo(event.email());
+        String emailContent = getCardFrozen(event);
+        helper.setText(emailContent, true);
+        mailSender.send(mimeMessage);
+    }
+
+    @SneakyThrows
+    private String getCardFrozen(CardFrozenEvent event) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH);
+        StringWriter writer = new StringWriter();
+        Map<String, Object> model = new HashMap<>();
+        model.put("card_number", event.cardNumber());
+        model.put("frozen_at", event.frozenAt().format(formatter));
+        configuration.getTemplate("card_frozen.ftlh").process(model, writer);
+        return writer.getBuffer().toString();
+    }
+
+    @Async
+    @SneakyThrows
+    public void sendCardUnfrozen(CardUnfrozenEvent event) {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+        helper.setSubject("Card unfrozen successfully");
+        helper.setTo(event.email());
+        String emailContent = getCardUnfrozen(event);
+        helper.setText(emailContent, true);
+        mailSender.send(mimeMessage);
+    }
+
+    @SneakyThrows
+    private String getCardUnfrozen(CardUnfrozenEvent event) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH);
+        StringWriter writer = new StringWriter();
+        Map<String, Object> model = new HashMap<>();
+        model.put("card_number", event.cardNumber());
+        model.put("unfrozen_at", event.unfrozenAt().format(formatter));
+        configuration.getTemplate("card_unfrozen.ftlh").process(model, writer);
         return writer.getBuffer().toString();
     }
 }

@@ -2,10 +2,7 @@ package com.wallet.notificationservice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.wallet.notificationservice.event.CardLinkedEvent;
-import com.wallet.notificationservice.event.EmailConfirmationEvent;
-import com.wallet.notificationservice.event.EmailConfirmedEvent;
-import com.wallet.notificationservice.event.PasswordChangedEvent;
+import com.wallet.notificationservice.event.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
@@ -47,5 +44,19 @@ public class NotificationService {
     public void consumeCardLinked(String message) throws JsonProcessingException {
         CardLinkedEvent event = objectMapper.readValue(message, CardLinkedEvent.class);
         mailSenderService.sendCardLinked(event);
+    }
+
+    @Transactional
+    @KafkaListener(topics = "card.frozen", groupId = "digital-wallet-card")
+    public void consumeCardFrozen(String message) throws JsonProcessingException {
+        CardFrozenEvent event = objectMapper.readValue(message, CardFrozenEvent.class);
+        mailSenderService.sendCardFrozen(event);
+    }
+
+    @Transactional
+    @KafkaListener(topics = "card.unfrozen", groupId = "digital-wallet-card")
+    public void consumeCardUnfrozen(String message) throws JsonProcessingException {
+        CardUnfrozenEvent event = objectMapper.readValue(message, CardUnfrozenEvent.class);
+        mailSenderService.sendCardUnfrozen(event);
     }
 }

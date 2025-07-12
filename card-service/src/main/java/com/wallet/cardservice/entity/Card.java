@@ -41,6 +41,12 @@ public class Card {
     @Column
     private BigDecimal money;
 
+    @Column
+    private boolean frozen;
+
+    @Column
+    private boolean blocked;
+
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
@@ -65,6 +71,10 @@ public class Card {
                 "number = " + number + ", " +
                 "expirationDate = " + expirationDate + ", " +
                 "cvv = " + cvv + ", " +
-                "money = " + money + ")";
+                "cardScheme = " + cardScheme + ", " +
+                "cardIssuer = " + cardIssuer + ", " +
+                "money = " + money + ", " +
+                "frozen = " + frozen + ", " +
+                "blocked = " + blocked + ")";
     }
 }
