@@ -5,6 +5,7 @@ import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.enums.CardStatusAction;
 import com.wallet.cardservice.enums.CardType;
 import com.wallet.cardservice.event.CardLinkedEvent;
+import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.CardNotFoundException;
 import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.feign.CardClient;
@@ -136,5 +137,13 @@ public class CardService {
         } catch (IllegalArgumentException e) {
             throw new CardStatusActionException("Invalid card action: " + inputString);
         }
+    }
+
+    @Transactional
+    public void removeCard(String number, UUID userId) {
+        if (!isCardLinkedToUser(number, userId)) {
+            throw new CardAccessDeniedException("You can't remove someone's card");
+        }
+        cardRepository.deleteCardByNumber(number);
     }
 }

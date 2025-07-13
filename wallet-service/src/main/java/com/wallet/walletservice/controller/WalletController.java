@@ -56,6 +56,20 @@ public class WalletController {
         return new ResponseEntity<>(new ApiResponse(true, "The request to add the card has been successfully sent. Expect an email notification after checking the data"), HttpStatus.OK);
     }
 
+    @DeleteMapping("/cards/{number}")
+    public ResponseEntity<?> removeCard(@PathVariable("number") String number,
+                                        @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = authorizationHeader.replace("Bearer ", "");
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        if (!cardDataValidator.isCardLinkedToUser(number, userId)) {
+            return new ResponseEntity<>(new ApiResponse(false, "You can't remove someone's card"), HttpStatus.FORBIDDEN);
+        }
+
+        walletService.removeCard(number, userId);
+        return new ResponseEntity<>(new ApiResponse(true, "The card was successfully unlinked from your wallet"), HttpStatus.NO_CONTENT);
+    }
+
     @GetMapping("/cards")
     public ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestHeader("Authorization") String authorizationHeader) {
         String jwt = authorizationHeader.replace("Bearer ", "");

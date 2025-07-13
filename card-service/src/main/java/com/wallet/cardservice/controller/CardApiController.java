@@ -33,6 +33,12 @@ public class CardApiController {
         return ResponseEntity.ok(HttpStatus.OK);
     }
 
+    @DeleteMapping("/card")
+    public ResponseEntity<HttpStatus> removeCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId) {
+        cardService.removeCard(number, userId);
+        return ResponseEntity.ok(HttpStatus.NO_CONTENT);
+    }
+
     @GetMapping("/card/linked")
     public boolean isCardLinkedToUser(@RequestParam("cardNumber") String cardNumber,
                                              @RequestParam("userId") UUID userId) {

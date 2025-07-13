@@ -40,4 +40,9 @@ public class WalletService {
             throw new CardAccessDeniedException("Access to the card is forbidden");
         }
     }
+
+    @Transactional
+    public void removeCard(String number, UUID userId) {
+        walletClient.removeCard(number, userId);
+    }
 }
