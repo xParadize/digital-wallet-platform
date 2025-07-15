@@ -61,6 +61,8 @@ services:
     command: redis-server --save 20 1
     volumes:
       - cache:/data
+    networks:
+      - app-network
 
   maildev:
     container_name: "maildev"
@@ -165,6 +167,15 @@ services:
       timeout: 5s
       start_period: 60s
       retries: 5
+
+  transaction-generator:
+    container_name: "transaction-generator"
+    build: ./transaction-generator
+    restart: unless-stopped
+    depends_on:
+      - redis
+    networks:
+      - app-network
 
 networks:
   postgres:
