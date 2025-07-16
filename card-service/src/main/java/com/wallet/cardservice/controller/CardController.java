@@ -1,9 +1,6 @@
 package com.wallet.cardservice.controller;
 
-import com.wallet.cardservice.dto.ApiResponse;
-import com.wallet.cardservice.dto.CardStatusActionDto;
-import com.wallet.cardservice.dto.InputFieldError;
-import com.wallet.cardservice.dto.SetCardLimitRequest;
+import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.enums.CardStatusAction;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
@@ -97,6 +94,28 @@ public class CardController {
 
         cardLimitService.saveLimit(request.getPerTransactionLimit(), card);
         return new ResponseEntity<>(new ApiResponse(true, "Limit set successfully"), HttpStatus.CREATED);
+    }
+
+    @PatchMapping("/{number}/limit")
+    public ResponseEntity<?> updateCardLimit(@PathVariable("number") String number,
+                                             @RequestBody @Valid UpdateCardLimitRequest request,
+                                             BindingResult bindingResult,
+                                             @RequestHeader("Authorization") String authorizationHeader) {
+        if (bindingResult.hasFieldErrors()) {
+            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
+            return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
+        }
+
+        String jwt = authorizationHeader.replace("Bearer ", "");
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        if (!cardService.isCardLinkedToUser(number, userId)) {
+            throw new CardAccessDeniedException("You can't edit limit on someone's card.");
+        }
+
+        Card card = cardService.getCardByNumber(number);
+        cardLimitService.updateLimit(card, request.getPerTransactionLimit());
+        return new ResponseEntity<>(new ApiResponse(true, "Limit updated successfully"), HttpStatus.OK);
     }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
