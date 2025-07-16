@@ -38,4 +38,14 @@ public class CardLimitService {
         limit.setPerTransactionLimit(newLimitAmount);
         limitRepository.save(limit);
     }
+
+    @Transactional
+    public void removeLimit(Card card) {
+        Limit limit = card.getLimit();
+        if (limit == null)
+            throw new CardLimitException("Card has no limit set");
+        card.setLimit(null);
+        limitRepository.delete(limit);
+        cardRepository.save(card);
+    }
 }

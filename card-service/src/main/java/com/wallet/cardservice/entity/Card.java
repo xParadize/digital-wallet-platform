@@ -47,7 +47,7 @@ public class Card {
     @Column
     private boolean blocked;
 
-    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToOne(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinColumn(name = "limit_id", referencedColumnName = "id", unique = true)
     private Limit limit;
 

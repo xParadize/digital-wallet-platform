@@ -118,6 +118,21 @@ public class CardController {
         return new ResponseEntity<>(new ApiResponse(true, "Limit updated successfully"), HttpStatus.OK);
     }
 
+    @DeleteMapping("/{number}/limit")
+    public ResponseEntity<?> removeCardLimit(@PathVariable("number") String number,
+                                             @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = authorizationHeader.replace("Bearer ", "");
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        if (!cardService.isCardLinkedToUser(number, userId)) {
+            throw new CardAccessDeniedException("You can't remove the limit on someone's card.");
+        }
+
+        Card card = cardService.getCardByNumber(number);
+        cardLimitService.removeLimit(card);
+        return new ResponseEntity<>(new ApiResponse(true, "Limit removed successfully"), HttpStatus.NO_CONTENT);
+    }
+
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
         return bindingResult.getFieldErrors().stream()
                 .collect(Collectors.groupingBy(
