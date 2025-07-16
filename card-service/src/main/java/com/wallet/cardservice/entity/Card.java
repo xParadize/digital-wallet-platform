@@ -47,6 +47,10 @@ public class Card {
     @Column
     private boolean blocked;
 
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JoinColumn(name = "limit_id", referencedColumnName = "id", unique = true)
+    private Limit limit;
+
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;

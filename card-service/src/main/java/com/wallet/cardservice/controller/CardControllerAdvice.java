@@ -2,6 +2,7 @@ package com.wallet.cardservice.controller;
 
 import com.wallet.cardservice.dto.ApiResponse;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
+import com.wallet.cardservice.exception.CardLimitException;
 import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.exception.IncorrectSearchPath;
 import lombok.AllArgsConstructor;
@@ -35,5 +36,12 @@ public class CardControllerAdvice {
     public ResponseEntity<ApiResponse> handleCardStatusActionException(CardStatusActionException e) {
         ApiResponse response = new ApiResponse(false, e.getMessage());
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(CardLimitException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ApiResponse> handleCardLimitException(CardLimitException e) {
+        ApiResponse response = new ApiResponse(false, e.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 }

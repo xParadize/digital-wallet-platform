@@ -2,17 +2,27 @@ package com.wallet.cardservice.controller;
 
 import com.wallet.cardservice.dto.ApiResponse;
 import com.wallet.cardservice.dto.CardStatusActionDto;
+import com.wallet.cardservice.dto.InputFieldError;
+import com.wallet.cardservice.dto.SetCardLimitRequest;
 import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.enums.CardStatusAction;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
+import com.wallet.cardservice.exception.CardLimitException;
 import com.wallet.cardservice.exception.CardStatusActionException;
+import com.wallet.cardservice.service.CardLimitService;
 import com.wallet.cardservice.service.CardService;
 import com.wallet.cardservice.service.JwtService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -20,6 +30,7 @@ import java.util.UUID;
 public class CardController {
     private final CardService cardService;
     private final JwtService jwtService;
+    private final CardLimitService cardLimitService;
 
     @PatchMapping("/{number}/status")
     public ResponseEntity<ApiResponse> changeCardStatus(@PathVariable("number") String number,
@@ -61,4 +72,42 @@ public class CardController {
         return ResponseEntity.ok(new ApiResponse(true, actionMessage));
     }
 
+    @PostMapping("/{number}/limit")
+    public ResponseEntity<?> setCardLimit(@PathVariable("number") String number,
+                                                    @RequestBody @Valid SetCardLimitRequest request,
+                                                    BindingResult bindingResult,
+                                                    @RequestHeader("Authorization") String authorizationHeader) {
+        if (bindingResult.hasFieldErrors()) {
+            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
+            return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
+        }
+
+        String jwt = authorizationHeader.replace("Bearer ", "");
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        if (!cardService.isCardLinkedToUser(number, userId)) {
+            throw new CardAccessDeniedException("You can't set limit on someone's card.");
+        }
+
+        Card card = cardService.getCardByNumber(number);
+
+        if (card.getLimit() != null) {
+            throw new CardLimitException("Card already has a limit set.");
+        }
+
+        cardLimitService.saveLimit(request.getPerTransactionLimit(), card);
+        return new ResponseEntity<>(new ApiResponse(true, "Limit set successfully"), HttpStatus.CREATED);
+    }
+
+    private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
+        return bindingResult.getFieldErrors().stream()
+                .collect(Collectors.groupingBy(
+                        FieldError::getField,
+                        Collectors.mapping(FieldError::getDefaultMessage, Collectors.toList())
+                ))
+                .entrySet()
+                .stream()
+                .map(entry -> new InputFieldError(entry.getKey(), entry.getValue()))
+                .toList();
+    }
 }
