@@ -19,4 +19,5 @@ public class CardDetailsDto {
     private boolean isFrozen;
     private boolean isBlocked;
     private List<RecentTransactionsDto> recentTransactions;
+    private Limit limit;
 }

@@ -47,10 +47,10 @@ def generate_offer():
     return {
         "id": f"pmt-{timestamp}",
         "amount": {
-            "value": round(random.uniform(10, 999_999_999), 2),
+            "value": round(random.uniform(100, 999_999), 2),
             "currency": "RUB"
         },
-        "category": random.choice(list(TransactionCategory)).value,
+        "category": random.choice(list(TransactionCategory)).name,
         "location": {
             "vendor": faker.company(),
             "latitude": float(faker.latitude()),

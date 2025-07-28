@@ -2,22 +2,27 @@ package com.wallet.cardservice.service;
 
 import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.entity.Card;
+import com.wallet.cardservice.entity.Limit;
 import com.wallet.cardservice.enums.CardStatusAction;
 import com.wallet.cardservice.enums.CardType;
 import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.CardNotFoundException;
 import com.wallet.cardservice.exception.CardStatusActionException;
+import com.wallet.cardservice.exception.InsufficientBalanceException;
 import com.wallet.cardservice.feign.CardClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.CardMapper;
 import com.wallet.cardservice.mapper.HolderMapper;
 import com.wallet.cardservice.repository.CardRepository;
+import com.wallet.cardservice.repository.LimitRepository;
+import com.wallet.cardservice.util.CardDataValidator;
 import com.wallet.cardservice.util.CardInfoCollector;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +36,8 @@ public class CardService {
     private final CardKafkaProducer cardKafkaProducer;
     private final CardClient cardClient;
     private final HolderMapper holderMapper;
+    private final CardDataValidator cardDataValidator;
+    private final LimitRepository limitRepository;
 
     public List<CardPreviewDto> getLinkedCards(UUID userId) {
         return cardRepository.findAllByUserId(userId).stream()
@@ -58,6 +65,9 @@ public class CardService {
                 .isFrozen(false)
                 .isBlocked(false)
                 .recentTransactions(List.of())
+                .limit(new CardLimitDto(
+                        card.getLimit().getPerTransactionLimit(),
+                        card.getLimit().isLimitEnabled()))
                 .build();
     }
 
@@ -78,7 +88,18 @@ public class CardService {
     public void saveCard(SaveCardDto saveCardDto) {
         Card card = cardMapper.toEntity(saveCardDto);
         enrichCardWithMeta(card);
-        cardRepository.save(card);
+
+        Limit defaultLimit = Limit.builder()
+                .perTransactionLimit(new BigDecimal("1000000"))
+                .limitEnabled(true)
+                .build();
+
+        Limit savedLimit = limitRepository.save(defaultLimit);
+        card.setLimit(savedLimit);
+
+        Card savedCard = cardRepository.save(card);
+        savedLimit.setCard(savedCard);
+
         sendCardLinkedEvent(saveCardDto.getUserId(), saveCardDto.getEmail(), maskCardNumber(card.getNumber()), card.getCardIssuer(), card.getCardScheme(), LocalDateTime.now());
     }
 
@@ -145,5 +166,29 @@ public class CardService {
             throw new CardAccessDeniedException("You can't remove someone's card");
         }
         cardRepository.deleteCardByNumber(number);
+    }
+
+    public CardStatusDto getCardStatus(String number) {
+        Card card = getCardByNumber(number);
+        return new CardStatusDto(
+                card.isFrozen(),
+                card.isBlocked(),
+                cardDataValidator.isCardExpired(card.getExpirationDate())
+        );
+    }
+
+    @Transactional
+    public void subtractMoney(UUID userId, BigDecimal amount, String cardNumber) {
+        Card card = getCardByNumber(cardNumber);
+
+        if (!isCardLinkedToUser(cardNumber, userId)) {
+            throw new CardAccessDeniedException("You can't subtract money from someone's card");
+        }
+
+        if (card.getMoney().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException("Insufficient balance");
+        }
+        card.setMoney(amount);
+        cardRepository.save(card);
     }
 }

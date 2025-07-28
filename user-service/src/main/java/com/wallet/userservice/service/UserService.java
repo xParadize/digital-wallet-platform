@@ -29,6 +29,6 @@ public class UserService {
 
     public HolderDto getHolder(UUID userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("Unable to load holder's name and lastname"));
-        return new HolderDto(user.getName(), user.getLastname());
+        return new HolderDto(user.getName(), user.getLastname(), user.getId());
     }
 }

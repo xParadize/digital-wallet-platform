@@ -18,8 +18,16 @@ spring:
     hibernate:
       ddl-auto: none
     show-sql: false
+  cloud:
+    openfeign:
+      okhttp:
+        enabled: true
 
 security:
   jwt:
     secret: ${JWT_SECRET}
     expirationMs: 604800000 # 1 week
+
+payment:
+  limits:
+    per-transaction-amount: 1000000000.00

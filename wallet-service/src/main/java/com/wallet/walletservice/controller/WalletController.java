@@ -2,6 +2,7 @@ package com.wallet.walletservice.controller;
 
 import com.wallet.walletservice.dto.*;
 import com.wallet.walletservice.exception.IncorrectSearchPath;
+import com.wallet.walletservice.exception.InvalidAuthorizationException;
 import com.wallet.walletservice.service.JwtService;
 import com.wallet.walletservice.service.WalletService;
 import com.wallet.walletservice.util.CardDataValidator;
@@ -34,7 +35,7 @@ public class WalletController {
     public ResponseEntity<?> addCard(@RequestBody @Valid AddCardDto addCardDto,
                                      BindingResult bindingResult,
                                      @RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = authorizationHeader.replace("Bearer ", "");
+        String jwt = extractJwtFromHeader(authorizationHeader);
         String email = jwtService.extractEmailFromJwt(jwt);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
@@ -59,7 +60,7 @@ public class WalletController {
     @DeleteMapping("/cards/{number}")
     public ResponseEntity<?> removeCard(@PathVariable("number") String number,
                                         @RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = authorizationHeader.replace("Bearer ", "");
+        String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
         if (!cardDataValidator.isCardLinkedToUser(number, userId)) {
@@ -72,7 +73,7 @@ public class WalletController {
 
     @GetMapping("/cards")
     public ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = authorizationHeader.replace("Bearer ", "");
+        String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
         return new ResponseEntity<>(walletService.getLinkedCards(userId), HttpStatus.OK);
     }
@@ -80,9 +81,16 @@ public class WalletController {
     @GetMapping("/cards/{number}")
     public ResponseEntity<CardDetailsDto> getLinkedCard(@PathVariable("number") String number,
                                                         @RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = authorizationHeader.replace("Bearer ", "");
+        String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
         return new ResponseEntity<>(walletService.getLinkedCard(number, userId), HttpStatus.OK);
+    }
+
+    private String extractJwtFromHeader(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new InvalidAuthorizationException("Invalid authorization header");
+        }
+        return authorizationHeader.substring(7);
     }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {

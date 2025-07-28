@@ -3,20 +3,21 @@ package com.wallet.cardservice.controller;
 import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.enums.CardStatusAction;
-import com.wallet.cardservice.exception.CardAccessDeniedException;
-import com.wallet.cardservice.exception.CardLimitException;
-import com.wallet.cardservice.exception.CardStatusActionException;
+import com.wallet.cardservice.exception.*;
 import com.wallet.cardservice.service.CardLimitService;
 import com.wallet.cardservice.service.CardService;
 import com.wallet.cardservice.service.JwtService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -25,15 +26,26 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @RequestMapping("/card")
 public class CardController {
+
+    @Value("${payment.limits.per-transaction-amount}")
+    private BigDecimal defaultPerTransactionLimit;
+
     private final CardService cardService;
     private final JwtService jwtService;
     private final CardLimitService cardLimitService;
+
+    private final DecimalFormat formatter = new DecimalFormat("#,##0.00");
+
+    @RequestMapping(value = "/**")
+    public ResponseEntity<ApiResponse> handleNotFound() {
+        throw new IncorrectSearchPath();
+    }
 
     @PatchMapping("/{number}/status")
     public ResponseEntity<ApiResponse> changeCardStatus(@PathVariable("number") String number,
                                                         @RequestBody CardStatusActionDto dto,
                                                         @RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = authorizationHeader.replace("Bearer ", "");
+        String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
         String email = jwtService.extractEmailFromJwt(jwt);
 
@@ -79,7 +91,7 @@ public class CardController {
             return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
         }
 
-        String jwt = authorizationHeader.replace("Bearer ", "");
+        String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
         if (!cardService.isCardLinkedToUser(number, userId)) {
@@ -90,6 +102,10 @@ public class CardController {
 
         if (card.getLimit() != null) {
             throw new CardLimitException("Card already has a limit set.");
+        }
+
+        if (request.getPerTransactionLimit().compareTo(defaultPerTransactionLimit) >= 0) {
+            throw new CardLimitException("The new per-transaction limit must be less than the system default limit of " + formatter.format(defaultPerTransactionLimit));
         }
 
         cardLimitService.saveLimit(request.getPerTransactionLimit(), card);
@@ -106,11 +122,15 @@ public class CardController {
             return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
         }
 
-        String jwt = authorizationHeader.replace("Bearer ", "");
+        String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
         if (!cardService.isCardLinkedToUser(number, userId)) {
             throw new CardAccessDeniedException("You can't edit limit on someone's card.");
+        }
+
+        if (request.getPerTransactionLimit().compareTo(defaultPerTransactionLimit) >= 0) {
+            throw new CardLimitException("The new per-transaction limit must be less than the system default limit of " + formatter.format(defaultPerTransactionLimit));
         }
 
         Card card = cardService.getCardByNumber(number);
@@ -121,7 +141,7 @@ public class CardController {
     @DeleteMapping("/{number}/limit")
     public ResponseEntity<?> removeCardLimit(@PathVariable("number") String number,
                                              @RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = authorizationHeader.replace("Bearer ", "");
+        String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
         if (!cardService.isCardLinkedToUser(number, userId)) {
@@ -131,6 +151,13 @@ public class CardController {
         Card card = cardService.getCardByNumber(number);
         cardLimitService.removeLimit(card);
         return new ResponseEntity<>(new ApiResponse(true, "Limit removed successfully"), HttpStatus.NO_CONTENT);
+    }
+
+    private String extractJwtFromHeader(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new InvalidAuthorizationException("Invalid authorization header");
+        }
+        return authorizationHeader.substring(7);
     }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {

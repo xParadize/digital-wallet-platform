@@ -171,7 +171,23 @@ services:
   transaction-generator:
     container_name: "transaction-generator"
     build: ./transaction-generator
+    ports:
+      - "8101:8101"
     restart: unless-stopped
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  otp-service:
+    container_name: "otp-service"
+    build:
+      context: .
+      dockerfile: otp-service/Dockerfile
+    ports:
+      - "8100:8100"
+    env_file:
+      - .env
     depends_on:
       - redis
     networks:

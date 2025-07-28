@@ -3,6 +3,7 @@ package com.wallet.authservice.controller;
 import com.wallet.authservice.dto.*;
 import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.exception.IncorrectSearchPath;
+import com.wallet.authservice.exception.InvalidAuthorizationException;
 import com.wallet.authservice.service.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -93,7 +94,7 @@ public class AuthController {
     public ResponseEntity<?> changePassword(@RequestBody @Valid ChangePasswordRequest request,
                                             BindingResult bindingResult,
                                             @RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = authorizationHeader.replace("Bearer ", "");
+        String jwt = extractJwtFromHeader(authorizationHeader);
         String email = jwtService.extractEmailFromJwt(jwt);
 
         if (bindingResult.hasFieldErrors()) {
@@ -116,6 +117,13 @@ public class AuthController {
 
         userPrototypeService.changePassword(request.getNewPassword(), email);
         return new ResponseEntity<>(new ApiResponse(true, "The password has been successfully changed"), HttpStatus.OK);
+    }
+
+    private String extractJwtFromHeader(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new InvalidAuthorizationException("Invalid authorization header");
+        }
+        return authorizationHeader.substring(7);
     }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {

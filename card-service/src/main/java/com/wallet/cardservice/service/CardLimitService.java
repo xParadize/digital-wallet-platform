@@ -6,15 +6,19 @@ import com.wallet.cardservice.exception.CardLimitException;
 import com.wallet.cardservice.repository.CardRepository;
 import com.wallet.cardservice.repository.LimitRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class CardLimitService {
+
+    @Value("${payment.limits.per-transaction-amount}")
+    private BigDecimal defaultPerTransactionLimit;
+
     private final LimitRepository limitRepository;
     private final CardRepository cardRepository;
 
@@ -22,6 +26,7 @@ public class CardLimitService {
     public void saveLimit(BigDecimal limitAmount, Card card) {
         Limit limit = new Limit();
         limit.setPerTransactionLimit(limitAmount);
+        limit.setLimitEnabled(true);
         card.setLimit(limit);
         limitRepository.save(limit);
     }
@@ -44,8 +49,17 @@ public class CardLimitService {
         Limit limit = card.getLimit();
         if (limit == null)
             throw new CardLimitException("Card has no limit set");
-        card.setLimit(null);
+
+        card.setLimit(createDefaultLimit(card));
         limitRepository.delete(limit);
         cardRepository.save(card);
+    }
+
+    private Limit createDefaultLimit(Card card) {
+        return Limit.builder()
+                .perTransactionLimit(defaultPerTransactionLimit)
+                .limitEnabled(true)
+                .card(card)
+                .build();
     }
 }

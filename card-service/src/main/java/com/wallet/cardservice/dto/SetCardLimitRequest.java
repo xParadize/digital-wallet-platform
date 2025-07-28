@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 public class SetCardLimitRequest {
-    @DecimalMin(value = "0.00", inclusive = true, message = "The limit can't be negative")
+    @DecimalMin(value = "100.00", inclusive = true, message = "The limit can't be less than 100")
     @Digits(integer = 15, fraction = 2, message = "Incorrect number format")
     @NotNull(message = "Field 'perTransactionLimit' shouldn't be empty")
     private BigDecimal perTransactionLimit;
