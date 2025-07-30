@@ -1,9 +1,7 @@
 package com.wallet.transactionservice.service;
 
-import com.wallet.transactionservice.dto.CardDetailsDto;
-import com.wallet.transactionservice.dto.PaymentOffer;
-import com.wallet.transactionservice.dto.PaymentRequestDto;
-import com.wallet.transactionservice.dto.PaymentResult;
+import com.wallet.transactionservice.dto.*;
+import com.wallet.transactionservice.entity.PaymentOfferEntity;
 import com.wallet.transactionservice.entity.Transaction;
 import com.wallet.transactionservice.enums.CardType;
 import com.wallet.transactionservice.enums.Currency;
@@ -11,13 +9,13 @@ import com.wallet.transactionservice.enums.TransactionCategory;
 import com.wallet.transactionservice.enums.TransactionStatus;
 import com.wallet.transactionservice.exception.TransactionNotFoundException;
 import com.wallet.transactionservice.feign.TransactionClient;
+import com.wallet.transactionservice.mapper.PaymentOfferMapper;
 import com.wallet.transactionservice.repository.TransactionRepository;
 import com.wallet.transactionservice.util.PaymentValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -29,6 +27,8 @@ public class TransactionService {
     private final TransactionClient transactionClient;
     private final PaymentValidator paymentValidator;
     private final OtpService otpService;
+    private final PaymentOfferMapper paymentOfferMapper;
+    private final PaymentOfferEntityService paymentOfferEntityService;
 
     @Transactional
     public PaymentResult processPayment(UUID userId, String offerId, PaymentRequestDto paymentRequest) {
@@ -37,11 +37,14 @@ public class TransactionService {
 
         paymentValidator.validatePayment(paymentRequest, cardDetailsDto, userId, paymentOffer);
 
+        PaymentOfferEntity paymentOfferEntity = paymentOfferMapper.toEntity(paymentOffer);
+        PaymentOfferEntity savedPaymentOfferEntity = paymentOfferEntityService.save(paymentOfferEntity);
+
         UUID transactionId = initTransaction(
                 userId,
-                paymentOffer.id(),
+                savedPaymentOfferEntity.getId(),
                 paymentOffer.category(),
-                paymentOffer.amount().value(),
+                paymentOffer.amount(),
                 cardDetailsDto.getSecretDetails().number(),
                 cardDetailsDto.getCardType()
         );
@@ -75,43 +78,56 @@ public class TransactionService {
     }
 
     @Transactional
-    public UUID initTransaction(UUID userId, String offerId, String category, BigDecimal amount, String cardNumber, CardType cardType) {
+    public UUID initTransaction(UUID userId, String paymentOfferEntityId, String category, Amount amount, String cardNumber, CardType cardType) {
+        // Получаем managed экземпляр PaymentOfferEntity из базы
+        PaymentOfferEntity paymentOfferEntity = paymentOfferEntityService.findPaymentOfferEntityById(paymentOfferEntityId);
+
         Transaction transaction = Transaction.builder()
                 .userId(userId)
-                .offerId(offerId)
+                .offer(paymentOfferEntity)
                 .status(TransactionStatus.PENDING)
                 .category(TransactionCategory.valueOf(category.toUpperCase()))
-                .amount(amount)
-                .currency(Currency.RUB)
+                .amount(amount.value())
+                .currency(Currency.valueOf(amount.currency().toUpperCase()))
                 .cardNumber(cardNumber)
                 .cardType(cardType)
                 .createdAt(LocalDateTime.now())
                 .build();
-        transactionRepository.save(transaction);
-        return transaction.getId();
+
+        Transaction savedTransaction = transactionRepository.save(transaction);
+        return savedTransaction.getId();
     }
 
     @Transactional
     public void finishTransactionById(UUID transactionId) {
         Transaction transaction = getTransactionById(transactionId);
-        finishTransactionInternal(transaction);
+
+        // Получаем свежий managed экземпляр PaymentOfferEntity
+        String offerId = transaction.getOffer().getId();
+        PaymentOfferEntity paymentOfferEntity = paymentOfferEntityService.findPaymentOfferEntityById(offerId);
+
+        finishTransactionInternal(transaction, paymentOfferEntity);
     }
 
     @Transactional
     public void finishTransactionByUserAndOffer(UUID userId, String offerId) {
         Transaction transaction = transactionRepository.findByUserIdAndOfferIdAndStatus(
-                userId, offerId, TransactionStatus.PENDING)
+                        userId, offerId, TransactionStatus.PENDING)
                 .orElseThrow(() -> new TransactionNotFoundException("Pending transaction not found"));
-        finishTransactionInternal(transaction);
+        PaymentOfferEntity paymentOfferEntity = paymentOfferEntityService.findPaymentOfferEntityById(offerId);
+        finishTransactionInternal(transaction, paymentOfferEntity);
     }
-    
-    private void finishTransactionInternal(Transaction transaction) {
+
+    private void finishTransactionInternal(Transaction transaction, PaymentOfferEntity paymentOfferEntity) {
         transactionClient.subtractMoney(transaction.getUserId(), transaction.getAmount(), transaction.getCardNumber());
-        cacheService.removeOffer(transaction.getOfferId());
+        cacheService.removeOffer(transaction.getOffer().getId());
 
         transaction.setStatus(TransactionStatus.CONFIRMED);
         transaction.setConfirmedAt(LocalDateTime.now());
 
+        paymentOfferEntity.setCompletedAt(LocalDateTime.now());
+
+        paymentOfferEntityService.save(paymentOfferEntity);
         transactionRepository.save(transaction);
     }
 

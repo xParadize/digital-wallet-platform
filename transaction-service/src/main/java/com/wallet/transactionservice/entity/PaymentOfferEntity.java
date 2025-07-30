@@ -1,18 +1,14 @@
 package com.wallet.transactionservice.entity;
 
-import com.wallet.transactionservice.enums.CardType;
 import com.wallet.transactionservice.enums.Currency;
 import com.wallet.transactionservice.enums.TransactionCategory;
-import com.wallet.transactionservice.enums.TransactionStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
-import java.util.UUID;
 
 @Entity
 @Getter
@@ -20,25 +16,10 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "transaction_")
-public class Transaction {
-
+@Table(name = "payment_offer")
+public class PaymentOfferEntity {
     @Id
-    @UuidGenerator(style = UuidGenerator.Style.RANDOM)
-    private UUID id;
-
-    @Column
-    private UUID userId;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "offer_id", referencedColumnName = "id")
-    private PaymentOfferEntity offer;
-
-    @Enumerated(EnumType.STRING)
-    private TransactionStatus status;
-
-    @Enumerated(EnumType.STRING)
-    private TransactionCategory category;
+    private String id;
 
     @Column
     private BigDecimal amount;
@@ -46,20 +27,23 @@ public class Transaction {
     @Enumerated(EnumType.STRING)
     private Currency currency;
 
-    @Column
-    private String cardNumber;
-
     @Enumerated(EnumType.STRING)
-    private CardType cardType;
+    private TransactionCategory category;
 
     @Column
-    private LocalDateTime createdAt;
+    private String vendor;
 
     @Column
-    private LocalDateTime confirmedAt;
+    private float latitude;
 
     @Column
-    private LocalDateTime cancelledAt;
+    private float longitude;
+
+    @Column
+    private LocalDateTime suggestedAt;
+
+    @Column
+    private LocalDateTime completedAt;
 
     @Override
     public final boolean equals(Object o) {
@@ -68,7 +52,7 @@ public class Transaction {
         Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        Transaction that = (Transaction) o;
+        PaymentOfferEntity that = (PaymentOfferEntity) o;
         return getId() != null && Objects.equals(getId(), that.getId());
     }
 
@@ -81,15 +65,13 @@ public class Transaction {
     public String toString() {
         return getClass().getSimpleName() + "(" +
                 "id = " + id + ", " +
-                "userId = " + userId + ", " +
-                "status = " + status + ", " +
-                "category = " + category + ", " +
                 "amount = " + amount + ", " +
                 "currency = " + currency + ", " +
-                "cardNumber = " + cardNumber + ", " +
-                "cardType = " + cardType + ", " +
-                "createdAt = " + createdAt + ", " +
-                "confirmedAt = " + confirmedAt + ", " +
-                "cancelledAt = " + cancelledAt + ")";
+                "category = " + category + ", " +
+                "vendor = " + vendor + ", " +
+                "latitude = " + latitude + ", " +
+                "longitude = " + longitude + ", " +
+                "suggestedAt = " + suggestedAt + ", " +
+                "completedAt = " + completedAt + ")";
     }
 }
