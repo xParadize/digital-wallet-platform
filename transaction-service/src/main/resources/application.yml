@@ -31,9 +31,10 @@ spring:
       okhttp:
         enabled: true
 
-
-
 security:
   jwt:
     secret: ${JWT_SECRET}
     expirationMs: 604800000 # 1 week
+
+transaction:
+  per-page: ${TRANSACTIONS_PER_PAGE}

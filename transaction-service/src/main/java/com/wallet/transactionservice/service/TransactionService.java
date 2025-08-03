@@ -4,20 +4,29 @@ import com.wallet.transactionservice.dto.*;
 import com.wallet.transactionservice.entity.PaymentOfferEntity;
 import com.wallet.transactionservice.entity.Transaction;
 import com.wallet.transactionservice.enums.CardType;
-import com.wallet.transactionservice.enums.Currency;
 import com.wallet.transactionservice.enums.TransactionCategory;
 import com.wallet.transactionservice.enums.TransactionStatus;
 import com.wallet.transactionservice.exception.TransactionNotFoundException;
 import com.wallet.transactionservice.feign.TransactionClient;
 import com.wallet.transactionservice.mapper.PaymentOfferMapper;
 import com.wallet.transactionservice.repository.TransactionRepository;
+import com.wallet.transactionservice.util.DateConverter;
+import com.wallet.transactionservice.util.LocalDateValidator;
 import com.wallet.transactionservice.util.PaymentValidator;
+import com.wallet.transactionservice.util.TransactionSummary;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +38,11 @@ public class TransactionService {
     private final OtpService otpService;
     private final PaymentOfferMapper paymentOfferMapper;
     private final PaymentOfferEntityService paymentOfferEntityService;
+    private final LocalDateValidator localDateValidator;
+    private final DateConverter dateConverter;
+
+    @Value("${transaction.per-page}")
+    private int transactionsPerPage;
 
     @Transactional
     public PaymentResult processPayment(UUID userId, String offerId, PaymentRequestDto paymentRequest) {
@@ -43,10 +57,10 @@ public class TransactionService {
         UUID transactionId = initTransaction(
                 userId,
                 savedPaymentOfferEntity.getId(),
-                paymentOffer.category(),
-                paymentOffer.amount(),
                 cardDetailsDto.getSecretDetails().number(),
-                cardDetailsDto.getCardType()
+                cardDetailsDto.getCardType(),
+                paymentOfferEntity.getAmount(),
+                paymentOfferEntity.getCategory()
         );
 
         if (shouldRequireOtpVerification(cardDetailsDto, paymentOffer)) {
@@ -78,20 +92,19 @@ public class TransactionService {
     }
 
     @Transactional
-    public UUID initTransaction(UUID userId, String paymentOfferEntityId, String category, Amount amount, String cardNumber, CardType cardType) {
-        // Получаем managed экземпляр PaymentOfferEntity из базы
+    public UUID initTransaction(UUID userId, String paymentOfferEntityId, String cardNumber, CardType cardType, BigDecimal amount, TransactionCategory category) {
         PaymentOfferEntity paymentOfferEntity = paymentOfferEntityService.findPaymentOfferEntityById(paymentOfferEntityId);
+
+        BigDecimal signedAmount = category.applySign(amount);
 
         Transaction transaction = Transaction.builder()
                 .userId(userId)
                 .offer(paymentOfferEntity)
                 .status(TransactionStatus.PENDING)
-                .category(TransactionCategory.valueOf(category.toUpperCase()))
-                .amount(amount.value())
-                .currency(Currency.valueOf(amount.currency().toUpperCase()))
                 .cardNumber(cardNumber)
                 .cardType(cardType)
-                .createdAt(LocalDateTime.now())
+                .amount(signedAmount)
+                .createdAt(Instant.now())
                 .build();
 
         Transaction savedTransaction = transactionRepository.save(transaction);
@@ -102,7 +115,6 @@ public class TransactionService {
     public void finishTransactionById(UUID transactionId) {
         Transaction transaction = getTransactionById(transactionId);
 
-        // Получаем свежий managed экземпляр PaymentOfferEntity
         String offerId = transaction.getOffer().getId();
         PaymentOfferEntity paymentOfferEntity = paymentOfferEntityService.findPaymentOfferEntityById(offerId);
 
@@ -119,13 +131,13 @@ public class TransactionService {
     }
 
     private void finishTransactionInternal(Transaction transaction, PaymentOfferEntity paymentOfferEntity) {
-        transactionClient.subtractMoney(transaction.getUserId(), transaction.getAmount(), transaction.getCardNumber());
+        transactionClient.subtractMoney(transaction.getUserId(), paymentOfferEntity.getAmount(), transaction.getCardNumber());
         cacheService.removeOffer(transaction.getOffer().getId());
 
         transaction.setStatus(TransactionStatus.CONFIRMED);
-        transaction.setConfirmedAt(LocalDateTime.now());
+        transaction.setConfirmedAt(Instant.now());
 
-        paymentOfferEntity.setCompletedAt(LocalDateTime.now());
+        paymentOfferEntity.setCompletedAt(Instant.now());
 
         paymentOfferEntityService.save(paymentOfferEntity);
         transactionRepository.save(transaction);
@@ -133,5 +145,111 @@ public class TransactionService {
 
     public Transaction getTransactionById(UUID id) {
         return transactionRepository.getTransactionById(id).orElseThrow(() -> new TransactionNotFoundException("Transaction " + id + " not found"));
+    }
+
+    public PeriodGroupedTransactionsDto getTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
+        Instant start = dateConverter.toStartOfDayInstant(from);
+        Instant end = dateConverter.toEndOfDayInstant(to);
+
+        List<Transaction> transactionsByPeriod = findAllTransactionsByUserIdInPeriod(cardNumber, start, end, page);
+
+        if (transactionsByPeriod.isEmpty()) {
+            return new PeriodGroupedTransactionsDto(BigDecimal.ZERO, BigDecimal.ZERO, Collections.emptyList());
+        }
+
+        Map<LocalDate, BigDecimal> dailyTotalMap = getDailyTotal(cardNumber, start, end);
+
+        var summary = transactionsByPeriod.stream()
+                .collect(Collector.of(TransactionSummary::new,
+                        (transactionSummary, transaction) -> {
+                            BigDecimal amount = transaction.getAmount();
+                            if (amount.signum() < 0) {
+                                transactionSummary.totalSpending = transactionSummary.totalSpending.add(amount.abs());
+                            } else if (amount.signum() > 0) {
+                                transactionSummary.totalIncome = transactionSummary.totalIncome.add(amount);
+                            }
+
+                            LocalDate date = dateConverter.toLocalDate(transaction.getConfirmedAt());
+                            transactionSummary.transactionsByDate.computeIfAbsent(date, instant -> new ArrayList<>()).add(transaction);
+                        },
+                        (s1, s2) -> {
+                            s1.totalSpending = s1.totalSpending.add(s2.totalSpending);
+                            s1.totalIncome = s1.totalIncome.add(s2.totalIncome);
+                            s2.transactionsByDate.forEach((date, transactions) ->
+                                    s1.transactionsByDate.merge(date, transactions, (existing, newList) -> {
+                                        existing.addAll(newList);
+                                        return existing;
+                                    }));
+                            return s1;
+                        }
+                ));
+
+        List<DailyTransactionDto> dailyTransactions = summary.transactionsByDate.entrySet().stream()
+                .map(entry -> {
+                    LocalDate date = entry.getKey();
+                    List<Transaction> transactions = entry.getValue();
+
+                    BigDecimal dailyTotal = dailyTotalMap.getOrDefault(date, BigDecimal.ZERO);
+
+                    List<TransactionDto> transactionDtos = transactions.stream()
+                            .map(t -> new TransactionDto(
+                                    t.getOffer().getVendor(),
+                                    t.getOffer().getCategory(),
+                                    t.getAmount(),
+                                    t.getCardNumber(),
+                                    t.getConfirmedAt()
+                            ))
+                            .toList();
+
+                    return new DailyTransactionDto(date, dailyTotal, transactionDtos);
+                })
+                .sorted(Comparator.comparing(DailyTransactionDto::date))
+                .toList();
+
+        return new PeriodGroupedTransactionsDto(
+                getTotalSpending(cardNumber, start, end),
+                getTotalIncome(cardNumber, start, end),
+                dailyTransactions
+        );
+    }
+
+    private BigDecimal getTotalSpending(String cardNumber, Instant from, Instant to) {
+        List<Transaction> transactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, from, to);
+        return transactions.stream()
+                .filter(t -> t.getAmount().signum() < 0)
+                .map(t -> t.getAmount().abs())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal getTotalIncome(String cardNumber, Instant from, Instant to) {
+        List<Transaction> transactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, from, to);
+        return transactions.stream()
+                .map(Transaction::getAmount)
+                .filter(amount -> amount.signum() > 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private Map<LocalDate, BigDecimal> getDailyTotal(String cardNumber, Instant from, Instant to) {
+        List<Transaction> transactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, from, to);
+        return transactions.stream()
+                .collect(Collectors.groupingBy(
+                        transaction -> dateConverter.toLocalDate(transaction.getConfirmedAt()),
+                        Collectors.reducing(
+                                BigDecimal.ZERO,
+                                Transaction::getAmount,
+                                BigDecimal::add
+                        )
+                ));
+    }
+
+    private List<Transaction> findAllTransactionsByUserIdInPeriod(String cardNumber, Instant start, Instant end, int page) {
+        Pageable pageable = PageRequest.of(page, transactionsPerPage);
+        return transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end, pageable);
+    }
+
+    public void validateUserCardAccessWithDate(String cardNumber, UUID userId,  LocalDate from, LocalDate to) {
+        localDateValidator.validate(cardNumber, from, to);
+        CardDetailsDto cardDetailsDto = transactionClient.getLinkedCard(cardNumber, userId).getBody();
+        paymentValidator.validateCardOwnership(cardDetailsDto, userId);
     }
 }

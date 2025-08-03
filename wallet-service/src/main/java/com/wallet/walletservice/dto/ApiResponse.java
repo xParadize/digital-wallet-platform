@@ -1,12 +1,12 @@
 package com.wallet.walletservice.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record ApiResponse(
         boolean success,
         String message
 ) {
     public String getTimeStamp() {
-        return LocalDateTime.now().toString();
+        return Instant.now().toString();
     }
 }

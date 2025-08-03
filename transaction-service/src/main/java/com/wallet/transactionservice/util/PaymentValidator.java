@@ -31,9 +31,9 @@ public class PaymentValidator {
         }
     }
 
-    private void validateCardOwnership(CardDetailsDto cardDetails, UUID userId) {
+    public void validateCardOwnership(CardDetailsDto cardDetails, UUID userId) {
         if (!cardDetails.getHolder().id().equals(userId)) {
-            throw new CardAccessDeniedException("You can't pay with someone's card");
+            throw new CardAccessDeniedException("Not your card");
         }
     }
 

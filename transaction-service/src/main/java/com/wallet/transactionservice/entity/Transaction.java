@@ -1,8 +1,6 @@
 package com.wallet.transactionservice.entity;
 
 import com.wallet.transactionservice.enums.CardType;
-import com.wallet.transactionservice.enums.Currency;
-import com.wallet.transactionservice.enums.TransactionCategory;
 import com.wallet.transactionservice.enums.TransactionStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -10,7 +8,7 @@ import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -37,15 +35,6 @@ public class Transaction {
     @Enumerated(EnumType.STRING)
     private TransactionStatus status;
 
-    @Enumerated(EnumType.STRING)
-    private TransactionCategory category;
-
-    @Column
-    private BigDecimal amount;
-
-    @Enumerated(EnumType.STRING)
-    private Currency currency;
-
     @Column
     private String cardNumber;
 
@@ -53,13 +42,16 @@ public class Transaction {
     private CardType cardType;
 
     @Column
-    private LocalDateTime createdAt;
+    private BigDecimal amount;
 
     @Column
-    private LocalDateTime confirmedAt;
+    private Instant createdAt;
 
     @Column
-    private LocalDateTime cancelledAt;
+    private Instant confirmedAt;
+
+    @Column
+    private Instant cancelledAt;
 
     @Override
     public final boolean equals(Object o) {
@@ -83,9 +75,6 @@ public class Transaction {
                 "id = " + id + ", " +
                 "userId = " + userId + ", " +
                 "status = " + status + ", " +
-                "category = " + category + ", " +
-                "amount = " + amount + ", " +
-                "currency = " + currency + ", " +
                 "cardNumber = " + cardNumber + ", " +
                 "cardType = " + cardType + ", " +
                 "createdAt = " + createdAt + ", " +

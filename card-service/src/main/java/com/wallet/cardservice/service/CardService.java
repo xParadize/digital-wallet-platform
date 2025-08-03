@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -100,7 +100,7 @@ public class CardService {
         Card savedCard = cardRepository.save(card);
         savedLimit.setCard(savedCard);
 
-        sendCardLinkedEvent(saveCardDto.getUserId(), saveCardDto.getEmail(), maskCardNumber(card.getNumber()), card.getCardIssuer(), card.getCardScheme(), LocalDateTime.now());
+        sendCardLinkedEvent(saveCardDto.getUserId(), saveCardDto.getEmail(), maskCardNumber(card.getNumber()), card.getCardIssuer(), card.getCardScheme(), Instant.now());
     }
 
     private void enrichCardWithMeta(Card card) {
@@ -109,7 +109,7 @@ public class CardService {
         card.setCardScheme(meta.scheme());
     }
 
-    private void sendCardLinkedEvent(UUID userId, String email, String maskedNumber, String issuer, String scheme, LocalDateTime linkedAt) {
+    private void sendCardLinkedEvent(UUID userId, String email, String maskedNumber, String issuer, String scheme, Instant linkedAt) {
         CardLinkedEvent event = new CardLinkedEvent(userId, email, maskedNumber, issuer, scheme, linkedAt);
         cardKafkaProducer.sendCardLinkedEvent(event);
     }
@@ -188,7 +188,7 @@ public class CardService {
         if (card.getMoney().compareTo(amount) < 0) {
             throw new InsufficientBalanceException("Insufficient balance");
         }
-        card.setMoney(amount);
+        card.setMoney(card.getMoney().subtract(amount));
         cardRepository.save(card);
     }
 }

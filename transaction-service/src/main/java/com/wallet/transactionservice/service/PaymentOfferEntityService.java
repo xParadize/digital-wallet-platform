@@ -2,7 +2,6 @@ package com.wallet.transactionservice.service;
 
 import com.wallet.transactionservice.entity.PaymentOfferEntity;
 import com.wallet.transactionservice.exception.PaymentOfferEntityNotFoundException;
-import com.wallet.transactionservice.exception.TransactionNotFoundException;
 import com.wallet.transactionservice.repository.PaymentOfferEntityRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

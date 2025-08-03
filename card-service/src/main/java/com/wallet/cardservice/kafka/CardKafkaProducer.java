@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Component
@@ -31,7 +31,7 @@ public class CardKafkaProducer {
     }
 
     public void sendCardFrozenEvent(String number, String email, UUID userId) {
-        CardFrozenEvent event = new CardFrozenEvent(email, number, LocalDateTime.now());
+        CardFrozenEvent event = new CardFrozenEvent(email, number, Instant.now());
         ProducerRecord<String, Object> record = new ProducerRecord<>(
                 "card.frozen",
                 userId.toString(),
@@ -42,7 +42,7 @@ public class CardKafkaProducer {
     }
 
     public void sendCardUnfrozenEvent(String number, String email, UUID userId) {
-        CardUnfrozenEvent event = new CardUnfrozenEvent(email, number, LocalDateTime.now());
+        CardUnfrozenEvent event = new CardUnfrozenEvent(email, number, Instant.now());
         ProducerRecord<String, Object> record = new ProducerRecord<>(
                 "card.unfrozen",
                 userId.toString(),
@@ -53,7 +53,7 @@ public class CardKafkaProducer {
     }
 
     public void sendCardBlockedEvent(String number, String email, UUID userId) {
-        CardBlockedEvent event = new CardBlockedEvent(email, number, LocalDateTime.now());
+        CardBlockedEvent event = new CardBlockedEvent(email, number, Instant.now());
         ProducerRecord<String, Object> record = new ProducerRecord<>(
                 "card.blocked",
                 userId.toString(),

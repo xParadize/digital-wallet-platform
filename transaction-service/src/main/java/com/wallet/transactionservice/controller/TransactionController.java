@@ -1,13 +1,13 @@
 package com.wallet.transactionservice.controller;
 
 import com.wallet.transactionservice.dto.*;
+import com.wallet.transactionservice.exception.FieldValidationException;
 import com.wallet.transactionservice.exception.IncorrectSearchPath;
 import com.wallet.transactionservice.exception.InvalidAuthorizationException;
 import com.wallet.transactionservice.service.JwtService;
 import com.wallet.transactionservice.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -15,7 +15,6 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -32,13 +31,33 @@ public class TransactionController {
         throw new IncorrectSearchPath();
     }
 
-//    @GetMapping("/period")
-//    public ResponseEntity<PeriodGroupedTransactionsDto> getTransactions(@RequestParam("start") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate start,
-//                                                                        @RequestParam("end")   @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate end) {
-//
-//        // получить данные из репы по заданным временным рамкам и запихнуть эти данные в PeriodGroupedTransactionsDto
-//        // выдать результат
-//    }
+    @PostMapping("/period")
+    public PeriodGroupedTransactionsDto getTransactions(@RequestBody @Valid CardTransactionsRequestDto request,
+                                                        @RequestParam(defaultValue = "0") int page,
+                                          BindingResult bindingResult,
+                                          @RequestHeader("Authorization") String authorizationHeader) {
+        if (bindingResult.hasFieldErrors()) {
+            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
+            throw new FieldValidationException("Validation failed", fieldErrors);
+        }
+
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        transactionService.validateUserCardAccessWithDate(
+                request.getCardNumber(),
+                userId,
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo())
+        );
+
+        return transactionService.getTransactionsByPeriod(
+                request.getCardNumber(),
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo()),
+                page
+        );
+    }
 
     @PostMapping("/{offer_id}")
     public ResponseEntity<?> initiateTransaction(@PathVariable("offer_id") String offerId,

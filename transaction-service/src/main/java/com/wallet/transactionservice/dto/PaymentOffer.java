@@ -1,12 +1,12 @@
 package com.wallet.transactionservice.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record PaymentOffer(
         String id,
         Amount amount,
         String category,
         Location location,
-        LocalDateTime suggestedAt
+        Instant suggestedAt
 ) {
 }

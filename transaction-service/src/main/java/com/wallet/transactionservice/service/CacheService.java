@@ -2,10 +2,10 @@ package com.wallet.transactionservice.service;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.wallet.transactionservice.exception.PaymentOfferNotFoundException;
 import com.wallet.transactionservice.dto.PaymentOffer;
-import com.wallet.transactionservice.util.LocalDateTimeDeserializer;
-import com.wallet.transactionservice.util.LocalDateTimeSerializer;
+import com.wallet.transactionservice.exception.PaymentOfferNotFoundException;
+import com.wallet.transactionservice.util.InstantDeserializer;
+import com.wallet.transactionservice.util.InstantSerializer;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import redis.clients.jedis.UnifiedJedis;
 import redis.clients.jedis.exceptions.JedisException;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -28,8 +28,8 @@ public class CacheService {
 
     private final String PAYMENT_OFFER_KEY = "offer:";
     private static final Gson GSON = new GsonBuilder()
-            .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeDeserializer())
-            .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer())
+            .registerTypeAdapter(Instant.class, new InstantDeserializer())
+            .registerTypeAdapter(Instant.class, new InstantSerializer())
             .create();
     private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 

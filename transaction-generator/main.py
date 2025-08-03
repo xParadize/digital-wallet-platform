@@ -8,7 +8,6 @@ from faker import Faker
 class TransactionCategory(Enum):
     SBP_TRANSFER = "Fast Payment System transfer"
     CASH_WITHDRAWAL = "Cash withdrawal"
-    INCOMING_TRANSFER = "Incoming transfer"
     GOODS_PAYMENT = "Goods and services payment"
     SUPERMARKETS = "Supermarkets"
     MOBILE_SERVICES = "Mobile services"

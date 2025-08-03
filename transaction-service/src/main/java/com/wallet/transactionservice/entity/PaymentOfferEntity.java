@@ -7,7 +7,7 @@ import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 
 @Entity
@@ -40,10 +40,10 @@ public class PaymentOfferEntity {
     private float longitude;
 
     @Column
-    private LocalDateTime suggestedAt;
+    private Instant suggestedAt;
 
     @Column
-    private LocalDateTime completedAt;
+    private Instant completedAt;
 
     @Override
     public final boolean equals(Object o) {

@@ -2,10 +2,7 @@ package com.wallet.transactionservice.mapper;
 
 import com.wallet.transactionservice.dto.PaymentOffer;
 import com.wallet.transactionservice.entity.PaymentOfferEntity;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingConstants;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 
 @Mapper(unmappedTargetPolicy = ReportingPolicy.IGNORE,
         componentModel = MappingConstants.ComponentModel.SPRING)

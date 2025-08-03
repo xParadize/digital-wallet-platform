@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.StringWriter;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Locale;
@@ -25,7 +26,6 @@ import java.util.UUID;
 public class MailSenderService {
     private final Configuration configuration;
     private final JavaMailSender mailSender;
-    private StringWriter writer;
 
     @Async
     @SneakyThrows
@@ -109,7 +109,7 @@ public class MailSenderService {
         model.put("card_number", event.cardNumber());
         model.put("issuer", event.cardIssuer());
         model.put("scheme", event.cardScheme());
-        model.put("linked_at", event.linkedAt().format(formatter));
+        model.put("linked_at", event.linkedAt().atZone(ZoneOffset.UTC).format(formatter));
         configuration.getTemplate("card_linked.ftlh").process(model, writer);
         return writer.getBuffer().toString();
     }
@@ -132,7 +132,7 @@ public class MailSenderService {
         StringWriter writer = new StringWriter();
         Map<String, Object> model = new HashMap<>();
         model.put("card_number", event.cardNumber());
-        model.put("frozen_at", event.frozenAt().format(formatter));
+        model.put("frozen_at", event.frozenAt().atZone(ZoneOffset.UTC).format(formatter));
         configuration.getTemplate("card_frozen.ftlh").process(model, writer);
         return writer.getBuffer().toString();
     }
@@ -155,7 +155,7 @@ public class MailSenderService {
         StringWriter writer = new StringWriter();
         Map<String, Object> model = new HashMap<>();
         model.put("card_number", event.cardNumber());
-        model.put("unfrozen_at", event.unfrozenAt().format(formatter));
+        model.put("unfrozen_at", event.unfrozenAt().atZone(ZoneOffset.UTC).format(formatter));
         configuration.getTemplate("card_unfrozen.ftlh").process(model, writer);
         return writer.getBuffer().toString();
     }
@@ -178,7 +178,7 @@ public class MailSenderService {
         StringWriter writer = new StringWriter();
         Map<String, Object> model = new HashMap<>();
         model.put("card_number", event.cardNumber());
-        model.put("blocked_at", event.blockedAt().format(formatter));
+        model.put("blocked_at", event.blockedAt().atZone(ZoneOffset.UTC).format(formatter));
         configuration.getTemplate("card_blocked.ftlh").process(model, writer);
         return writer.getBuffer().toString();
     }
