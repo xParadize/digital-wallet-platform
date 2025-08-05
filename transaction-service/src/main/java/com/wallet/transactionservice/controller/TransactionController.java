@@ -8,7 +8,6 @@ import com.wallet.transactionservice.service.JwtService;
 import com.wallet.transactionservice.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -36,10 +35,7 @@ public class TransactionController {
                                                         @RequestParam(defaultValue = "0") int page,
                                           BindingResult bindingResult,
                                           @RequestHeader("Authorization") String authorizationHeader) {
-        if (bindingResult.hasFieldErrors()) {
-            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
-            throw new FieldValidationException("Validation failed", fieldErrors);
-        }
+        validateInput(bindingResult);
 
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
@@ -59,15 +55,37 @@ public class TransactionController {
         );
     }
 
+    @PostMapping("/expense/period")
+    public PeriodGroupedExpenseDto getExpense(@RequestBody @Valid CardTransactionsRequestDto request,
+                                                        @RequestParam(defaultValue = "0") int page,
+                                                        BindingResult bindingResult,
+                                                        @RequestHeader("Authorization") String authorizationHeader) {
+        validateInput(bindingResult);
+
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        transactionService.validateUserCardAccessWithDate(
+                request.getCardNumber(),
+                userId,
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo())
+        );
+
+        return transactionService.getExpenseTransactionsByPeriod(
+                request.getCardNumber(),
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo()),
+                page
+        );
+    }
+
     @PostMapping("/{offer_id}")
     public ResponseEntity<?> initiateTransaction(@PathVariable("offer_id") String offerId,
                                                            @RequestBody @Valid PaymentRequestDto paymentRequestDto,
                                                            BindingResult bindingResult,
                                                            @RequestHeader("Authorization") String authorizationHeader) {
-        if (bindingResult.hasFieldErrors()) {
-            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
-            return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
-        }
+        validateInput(bindingResult);
 
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
@@ -85,6 +103,13 @@ public class TransactionController {
             throw new InvalidAuthorizationException("Invalid authorization header");
         }
         return authorizationHeader.substring(7);
+    }
+
+    private void validateInput(BindingResult bindingResult) {
+        if (bindingResult.hasFieldErrors()) {
+            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
+            throw new FieldValidationException("Validation failed", fieldErrors);
+        }
     }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
