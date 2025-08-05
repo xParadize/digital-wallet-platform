@@ -13,7 +13,6 @@ import com.wallet.transactionservice.repository.TransactionRepository;
 import com.wallet.transactionservice.util.DateConverter;
 import com.wallet.transactionservice.util.LocalDateValidator;
 import com.wallet.transactionservice.util.PaymentValidator;
-import com.wallet.transactionservice.util.TransactionSummary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -25,7 +24,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 @Service
@@ -147,69 +145,30 @@ public class TransactionService {
         return transactionRepository.getTransactionById(id).orElseThrow(() -> new TransactionNotFoundException("Transaction " + id + " not found"));
     }
 
+    public void validateUserCardAccessWithDate(String cardNumber, UUID userId,  LocalDate from, LocalDate to) {
+        localDateValidator.validate(cardNumber, from, to);
+        CardDetailsDto cardDetailsDto = transactionClient.getLinkedCard(cardNumber, userId).getBody();
+        paymentValidator.validateCardOwnership(cardDetailsDto, userId);
+    }
+
     public PeriodGroupedTransactionsDto getTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
         Instant start = dateConverter.toStartOfDayInstant(from);
         Instant end = dateConverter.toEndOfDayInstant(to);
 
-        List<Transaction> transactionsByPeriod = findAllTransactionsByUserIdInPeriod(cardNumber, start, end, page);
+        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
 
-        if (transactionsByPeriod.isEmpty()) {
+        if (allTransactions.isEmpty()) {
             return new PeriodGroupedTransactionsDto(BigDecimal.ZERO, BigDecimal.ZERO, Collections.emptyList());
         }
 
-        Map<LocalDate, BigDecimal> dailyTotalMap = getDailyTotal(cardNumber, start, end);
+        List<Transaction> paginatedTransactions = findTransactionsByCardInPeriod(cardNumber, start, end, page);
 
-        var summary = transactionsByPeriod.stream()
-                .collect(Collector.of(TransactionSummary::new,
-                        (transactionSummary, transaction) -> {
-                            BigDecimal amount = transaction.getAmount();
-                            if (amount.signum() < 0) {
-                                transactionSummary.totalSpending = transactionSummary.totalSpending.add(amount.abs());
-                            } else if (amount.signum() > 0) {
-                                transactionSummary.totalIncome = transactionSummary.totalIncome.add(amount);
-                            }
-
-                            LocalDate date = dateConverter.toLocalDate(transaction.getConfirmedAt());
-                            transactionSummary.transactionsByDate.computeIfAbsent(date, instant -> new ArrayList<>()).add(transaction);
-                        },
-                        (s1, s2) -> {
-                            s1.totalSpending = s1.totalSpending.add(s2.totalSpending);
-                            s1.totalIncome = s1.totalIncome.add(s2.totalIncome);
-                            s2.transactionsByDate.forEach((date, transactions) ->
-                                    s1.transactionsByDate.merge(date, transactions, (existing, newList) -> {
-                                        existing.addAll(newList);
-                                        return existing;
-                                    }));
-                            return s1;
-                        }
-                ));
-
-        List<DailyTransactionDto> dailyTransactions = summary.transactionsByDate.entrySet().stream()
-                .map(entry -> {
-                    LocalDate date = entry.getKey();
-                    List<Transaction> transactions = entry.getValue();
-
-                    BigDecimal dailyTotal = dailyTotalMap.getOrDefault(date, BigDecimal.ZERO);
-
-                    List<TransactionDto> transactionDtos = transactions.stream()
-                            .map(t -> new TransactionDto(
-                                    t.getOffer().getVendor(),
-                                    t.getOffer().getCategory(),
-                                    t.getAmount(),
-                                    t.getCardNumber(),
-                                    t.getConfirmedAt()
-                            ))
-                            .toList();
-
-                    return new DailyTransactionDto(date, dailyTotal, transactionDtos);
-                })
-                .sorted(Comparator.comparing(DailyTransactionDto::date))
-                .toList();
+        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
 
         return new PeriodGroupedTransactionsDto(
-                getTotalSpending(cardNumber, start, end),
-                getTotalIncome(cardNumber, start, end),
-                dailyTransactions
+                transactionAggregator.getTotalSpending(),
+                transactionAggregator.getTotalIncome(),
+                buildDailyTransactions(paginatedTransactions, transactionAggregator.getDailyTotals())
         );
     }
 
@@ -217,138 +176,82 @@ public class TransactionService {
         Instant start = dateConverter.toStartOfDayInstant(from);
         Instant end = dateConverter.toEndOfDayInstant(to);
 
-        List<Transaction> transactionsByPeriod = findAllTransactionsByUserIdInPeriod(cardNumber, start, end, page);
+        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
 
-        if (transactionsByPeriod.isEmpty()) {
+        if (allTransactions.isEmpty()) {
             return new PeriodGroupedExpenseDto(BigDecimal.ZERO, Collections.emptyList(), Collections.emptyList());
         }
 
-        Map<LocalDate, BigDecimal> dailyTotalMap = getDailyTotalSpending(cardNumber, start, end);
+        List<Transaction> paginatedExpenses = findExpenseTransactionsByCardInPeriod(cardNumber, start, end, page);
 
-        var summary = transactionsByPeriod.stream()
-                .filter(t -> t.getAmount().signum() < 0)
-                .collect(Collector.of(TransactionSummary::new,
-                        (transactionSummary, transaction) -> {
-                            BigDecimal amount = transaction.getAmount();
-                            transactionSummary.totalSpending = transactionSummary.totalSpending.add(amount.abs());
-
-                            LocalDate date = dateConverter.toLocalDate(transaction.getConfirmedAt());
-                            transactionSummary.transactionsByDate.computeIfAbsent(date, instant -> new ArrayList<>()).add(transaction);
-                        },
-                        (s1, s2) -> {
-                            s1.totalSpending = s1.totalSpending.add(s2.totalSpending);
-                            s1.totalIncome = s1.totalIncome.add(s2.totalIncome);
-                            s2.transactionsByDate.forEach((date, transactions) ->
-                                    s1.transactionsByDate.merge(date, transactions, (existing, newList) -> {
-                                        existing.addAll(newList);
-                                        return existing;
-                                    }));
-                            return s1;
-                        }
-                ));
-
-        List<DailyTransactionDto> dailyTransactions = summary.transactionsByDate.entrySet().stream()
-                .map(entry -> {
-                    LocalDate date = entry.getKey();
-                    List<Transaction> transactions = entry.getValue();
-
-                    BigDecimal dailyTotal = dailyTotalMap.getOrDefault(date, BigDecimal.ZERO);
-
-                    List<TransactionDto> transactionDtos = transactions.stream()
-                            .map(t -> new TransactionDto(
-                                    t.getOffer().getVendor(),
-                                    t.getOffer().getCategory(),
-                                    t.getAmount(),
-                                    t.getCardNumber(),
-                                    t.getConfirmedAt()
-                            ))
-                            .toList();
-
-                    return new DailyTransactionDto(date, dailyTotal, transactionDtos);
-                })
-                .sorted(Comparator.comparing(DailyTransactionDto::date))
-                .toList();
+        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
 
         return new PeriodGroupedExpenseDto(
-                getTotalSpending(cardNumber, start, end),
-                calculateCategorySpending(cardNumber, start, end),
-                dailyTransactions
+                transactionAggregator.getTotalSpending(),
+                transactionAggregator.getCategorySpending(),
+                buildDailyTransactions(paginatedExpenses, transactionAggregator.getDailySpendingTotals())
         );
     }
 
-    private BigDecimal getTotalSpending(String cardNumber, Instant from, Instant to) {
-        List<Transaction> transactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, from, to);
-        return transactions.stream()
-                .filter(t -> t.getAmount().signum() < 0)
-                .map(t -> t.getAmount().abs())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    public PeriodGroupedIncomeDto getIncomeTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
+        Instant start = dateConverter.toStartOfDayInstant(from);
+        Instant end = dateConverter.toEndOfDayInstant(to);
+
+        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
+
+        if (allTransactions.isEmpty()) {
+            return new PeriodGroupedIncomeDto(BigDecimal.ZERO, Collections.emptyList(), Collections.emptyList());
+        }
+
+        List<Transaction> paginatedIncome = findIncomeTransactionsByCardInPeriod(cardNumber, start, end, page);
+
+        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
+
+        return new PeriodGroupedIncomeDto(
+                transactionAggregator.getTotalIncome(),
+                transactionAggregator.getCategoryIncome(),
+                buildDailyTransactions(paginatedIncome, transactionAggregator.getDailyIncomeTotals())
+        );
     }
 
-    private BigDecimal getTotalIncome(String cardNumber, Instant from, Instant to) {
-        List<Transaction> transactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, from, to);
-        return transactions.stream()
-                .map(Transaction::getAmount)
-                .filter(amount -> amount.signum() > 0)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    private Map<LocalDate, BigDecimal> getDailyTotal(String cardNumber, Instant from, Instant to) {
-        List<Transaction> transactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, from, to);
+    private List<DailyTransactionDto> buildDailyTransactions(List<Transaction> transactions, Map<LocalDate, BigDecimal> dailyTotals) {
         return transactions.stream()
                 .collect(Collectors.groupingBy(
-                        transaction -> dateConverter.toLocalDate(transaction.getConfirmedAt()),
-                        Collectors.reducing(
-                                BigDecimal.ZERO,
-                                Transaction::getAmount,
-                                BigDecimal::add
-                        )
-                ));
-    }
-
-    private Map<LocalDate, BigDecimal> getDailyTotalSpending(String cardNumber, Instant from, Instant to) {
-        List<Transaction> transactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, from, to);
-        return transactions.stream()
-                .filter(t -> t.getAmount().signum() < 0)
-                .collect(Collectors.groupingBy(
-                        transaction -> dateConverter.toLocalDate(transaction.getConfirmedAt()),
-                        Collectors.reducing(
-                                BigDecimal.ZERO,
-                                Transaction::getAmount,
-                                BigDecimal::add
-                        )
-                ));
-    }
-
-    private List<CategorySpending> calculateCategorySpending(String cardNumber, Instant from, Instant to) {
-        List<Transaction> transactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, from, to);
-        Map<TransactionCategory, BigDecimal> map = transactions.stream()
-                .filter(t -> t.getAmount().signum() < 0)
-                .collect(Collectors.groupingBy(
-                        t -> t.getOffer().getCategory(),
-                        Collectors.reducing(
-                                BigDecimal.ZERO,
-                                Transaction::getAmount,
-                                BigDecimal::add
-                        )
-                ));
-        return map.entrySet().stream()
-                .map(entry -> {
-                    TransactionCategory category = entry.getKey();
-                    BigDecimal totalSpending = entry.getValue();
-                    return new CategorySpending(category.toString(), totalSpending.abs());
-                })
-                .sorted(Comparator.comparing(CategorySpending::spending).reversed())
+                        t -> dateConverter.toLocalDate(t.getConfirmedAt())))
+                .entrySet().stream()
+                .map(entry -> new DailyTransactionDto(
+                        entry.getKey(),
+                        dailyTotals.getOrDefault(entry.getKey(), BigDecimal.ZERO),
+                        mapToTransactionDtos(entry.getValue())
+                ))
+                .sorted(Comparator.comparing(DailyTransactionDto::date))
                 .toList();
     }
 
-    private List<Transaction> findAllTransactionsByUserIdInPeriod(String cardNumber, Instant start, Instant end, int page) {
+    private List<TransactionDto> mapToTransactionDtos(List<Transaction> transactions) {
+        return transactions.stream()
+                .map(t -> new TransactionDto(
+                        t.getOffer().getVendor(),
+                        t.getOffer().getCategory(),
+                        t.getAmount(),
+                        t.getCardNumber(),
+                        t.getConfirmedAt()
+                ))
+                .toList();
+    }
+
+    private List<Transaction> findTransactionsByCardInPeriod(String cardNumber, Instant start, Instant end, int page) {
         Pageable pageable = PageRequest.of(page, transactionsPerPage);
         return transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end, pageable);
     }
 
-    public void validateUserCardAccessWithDate(String cardNumber, UUID userId,  LocalDate from, LocalDate to) {
-        localDateValidator.validate(cardNumber, from, to);
-        CardDetailsDto cardDetailsDto = transactionClient.getLinkedCard(cardNumber, userId).getBody();
-        paymentValidator.validateCardOwnership(cardDetailsDto, userId);
+    private List<Transaction> findExpenseTransactionsByCardInPeriod(String cardNumber, Instant start, Instant end, int page) {
+        Pageable pageable = PageRequest.of(page, transactionsPerPage);
+        return transactionRepository.findAllByCardNumberAndConfirmedAtBetweenAndAmountLessThan(cardNumber, start, end, BigDecimal.ZERO, pageable);
+    }
+
+    private List<Transaction> findIncomeTransactionsByCardInPeriod(String cardNumber, Instant start, Instant end, int page) {
+        Pageable pageable = PageRequest.of(page, transactionsPerPage);
+        return transactionRepository.findAllByCardNumberAndConfirmedAtBetweenAndAmountGreaterThan(cardNumber, start, end, BigDecimal.ZERO, pageable);
     }
 }

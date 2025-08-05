@@ -80,6 +80,31 @@ public class TransactionController {
         );
     }
 
+    @PostMapping("/income/period")
+    public PeriodGroupedIncomeDto getIncome(@RequestBody @Valid CardTransactionsRequestDto request,
+                                              @RequestParam(defaultValue = "0") int page,
+                                              BindingResult bindingResult,
+                                              @RequestHeader("Authorization") String authorizationHeader) {
+        validateInput(bindingResult);
+
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        transactionService.validateUserCardAccessWithDate(
+                request.getCardNumber(),
+                userId,
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo())
+        );
+
+        return transactionService.getIncomeTransactionsByPeriod(
+                request.getCardNumber(),
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo()),
+                page
+        );
+    }
+
     @PostMapping("/{offer_id}")
     public ResponseEntity<?> initiateTransaction(@PathVariable("offer_id") String offerId,
                                                            @RequestBody @Valid PaymentRequestDto paymentRequestDto,
