@@ -1,7 +1,7 @@
 package com.wallet.authservice.service;
 
 import com.wallet.authservice.entity.UserPrototype;
-import com.wallet.authservice.exception.IncorrectPasswordException;
+import com.wallet.authservice.exception.UserNotFoundException;
 import com.wallet.authservice.exception.UserPrototypeNotFoundException;
 import com.wallet.authservice.kafka.AuthKafkaProducer;
 import com.wallet.authservice.repository.UserPrototypeRepository;
@@ -31,7 +31,7 @@ public class UserPrototypeService {
 
     public String findPasswordByEmail(String email) {
         Optional<String> optPassword = userPrototypeRepository.getPasswordByEmail(email);
-        return optPassword.orElseThrow(IncorrectPasswordException::new);
+        return optPassword.orElseThrow(() -> new UserNotFoundException("User with this email not found"));
     }
 
     public UUID findIdByEmail(String email) {

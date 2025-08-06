@@ -4,10 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wallet.authservice.dto.ApiResponse;
-import com.wallet.authservice.exception.ConfirmationTokenException;
-import com.wallet.authservice.exception.IncorrectPasswordException;
-import com.wallet.authservice.exception.IncorrectSearchPath;
-import com.wallet.authservice.exception.InvalidAuthorizationException;
+import com.wallet.authservice.dto.ValidationErrorResponse;
+import com.wallet.authservice.exception.*;
 import feign.FeignException;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,6 +14,9 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import java.time.Instant;
 
 @RestControllerAdvice
 @AllArgsConstructor
@@ -31,13 +32,6 @@ public class AuthControllerAdvice {
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<ApiResponse> handleJsonHttpMessageNotReadableException() {
-        ApiResponse response = new ApiResponse(false, "Invalid JSON input");
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-    }
-
     @ExceptionHandler(ConfirmationTokenException.class)
     @ResponseStatus(HttpStatus.GONE)
     public ResponseEntity<ApiResponse> handleConfirmationTokenException() {
@@ -47,8 +41,8 @@ public class AuthControllerAdvice {
 
     @ExceptionHandler(IncorrectPasswordException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<ApiResponse> handleIncorrectPasswordException() {
-        ApiResponse response = new ApiResponse(false, "The password is incorrect.");
+    public ResponseEntity<ApiResponse> handleIncorrectPasswordException(IncorrectPasswordException e) {
+        ApiResponse response = new ApiResponse(false, e.getMessage());
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
@@ -57,6 +51,53 @@ public class AuthControllerAdvice {
     public ResponseEntity<ApiResponse> handleInvalidAuthorizationException(InvalidAuthorizationException e) {
         ApiResponse response = new ApiResponse(false, e.getMessage());
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(FieldValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ValidationErrorResponse> handleFieldValidationException(FieldValidationException e) {
+        ValidationErrorResponse errorResponse = new ValidationErrorResponse(
+                false,
+                e.getMessage(),
+                e.getErrors(),
+                Instant.now()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ApiResponse> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        ApiResponse response = new ApiResponse(false, e.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ApiResponse> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException e) {
+        ApiResponse response = new ApiResponse(false, e.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(PasswordMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ApiResponse> handlePasswordMismatchException(PasswordMismatchException e) {
+        ApiResponse response = new ApiResponse(false, e.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ApiResponse> handleUserAlreadyExistsException(UserAlreadyExistsException e) {
+        ApiResponse response = new ApiResponse(false, e.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ResponseEntity<ApiResponse> handleUserNotFoundException(UserNotFoundException e) {
+        ApiResponse response = new ApiResponse(false, e.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(FeignException.BadRequest.class)
@@ -132,10 +173,26 @@ public class AuthControllerAdvice {
     }
 
     @ExceptionHandler(FeignException.class)
-    public ResponseEntity<ApiResponse> handleFeignException(FeignException e) throws JsonProcessingException {
-        JsonNode errorJson = objectMapper.readTree(e.contentUTF8());
-        String originalMessage = errorJson.path(ERROR_MESSAGE_FIELD).asText("Bad request");
+    public ResponseEntity<ApiResponse> handleFeignException(FeignException e) {
+        String originalMessage = "Bad request";
+        HttpStatus httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
+
+        if (e.status() == -1) {
+            originalMessage = "Service temporarily unavailable";
+            httpStatus = HttpStatus.SERVICE_UNAVAILABLE;
+        } else {
+            try {
+                if (e.contentUTF8() != null && !e.contentUTF8().isEmpty()) {
+                    JsonNode errorJson = objectMapper.readTree(e.contentUTF8());
+                    originalMessage = errorJson.path(ERROR_MESSAGE_FIELD).asText("Bad request");
+                }
+                httpStatus = HttpStatus.valueOf(e.status());
+            } catch (Exception ex) {
+                originalMessage = "Service error occurred";
+            }
+        }
+
         ApiResponse response = new ApiResponse(false, originalMessage);
-        return new ResponseEntity<>(response, HttpStatus.valueOf(e.status()));
+        return new ResponseEntity<>(response, httpStatus);
     }
 }
