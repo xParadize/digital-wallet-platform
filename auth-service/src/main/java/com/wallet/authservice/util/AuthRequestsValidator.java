@@ -14,7 +14,7 @@ import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
-public class AuthValidator {
+public class AuthRequestsValidator {
     private final UnverifiedUserService unverifiedUserService;
     private final UserPrototypeService userPrototypeService;
     private final PasswordService passwordService;

@@ -7,17 +7,15 @@ import com.wallet.cardservice.exception.*;
 import com.wallet.cardservice.service.CardLimitService;
 import com.wallet.cardservice.service.CardService;
 import com.wallet.cardservice.service.JwtService;
+import com.wallet.cardservice.util.CardRequestsValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.text.DecimalFormat;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -26,15 +24,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @RequestMapping("/card")
 public class CardController {
-
-    @Value("${payment.limits.per-transaction-amount}")
-    private BigDecimal defaultPerTransactionLimit;
-
     private final CardService cardService;
     private final JwtService jwtService;
     private final CardLimitService cardLimitService;
-
-    private final DecimalFormat formatter = new DecimalFormat("#,##0.00");
+    private final CardRequestsValidator cardRequestsValidator;
 
     @RequestMapping(value = "/**")
     public ResponseEntity<ApiResponse> handleNotFound() {
@@ -49,9 +42,7 @@ public class CardController {
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
         String email = jwtService.extractEmailFromJwt(jwt);
 
-        if (!cardService.isCardLinkedToUser(number, userId)) {
-            throw new CardAccessDeniedException("You can't freeze, unfreeze or block someone's card.");
-        }
+        cardRequestsValidator.validateCardStatusRequest(number, userId);
 
         CardStatusAction action = cardService.convertStringToCardStatusAction(dto.statusAction());
         Card card = cardService.getCardByNumber(number);
@@ -72,41 +63,27 @@ public class CardController {
             default -> throw new CardStatusActionException("Unsupported action: " + dto.statusAction());
         }
 
-        String actionMessage = switch (action) {
+        String actionResponseMessage = switch (action) {
             case FREEZE -> "The card was successfully frozen";
             case UNFREEZE -> "The card was successfully unfrozen";
             case BLOCK -> "The card was successfully blocked";
         };
 
-        return ResponseEntity.ok(new ApiResponse(true, actionMessage));
+        return ResponseEntity.ok(new ApiResponse(true, actionResponseMessage));
     }
 
     @PostMapping("/{number}/limit")
-    public ResponseEntity<?> setCardLimit(@PathVariable("number") String number,
-                                                    @RequestBody @Valid SetCardLimitRequest request,
-                                                    BindingResult bindingResult,
-                                                    @RequestHeader("Authorization") String authorizationHeader) {
-        if (bindingResult.hasFieldErrors()) {
-            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
-            return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
-        }
-
+    public ResponseEntity<ApiResponse> setCardLimit(@PathVariable("number") String number,
+                                            @RequestBody @Valid SetCardLimitRequest request,
+                                            BindingResult bindingResult,
+                                            @RequestHeader("Authorization") String authorizationHeader) {
+        validateInput(bindingResult);
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
-        if (!cardService.isCardLinkedToUser(number, userId)) {
-            throw new CardAccessDeniedException("You can't set limit on someone's card.");
-        }
-
         Card card = cardService.getCardByNumber(number);
 
-        if (card.getLimit() != null) {
-            throw new CardLimitException("Card already has a limit set.");
-        }
-
-        if (request.getPerTransactionLimit().compareTo(defaultPerTransactionLimit) >= 0) {
-            throw new CardLimitException("The new per-transaction limit must be less than the system default limit of " + formatter.format(defaultPerTransactionLimit));
-        }
+        cardRequestsValidator.validateSetCardLimitRequest(number, userId, card, request.getPerTransactionLimit());
 
         cardLimitService.saveLimit(request.getPerTransactionLimit(), card);
         return new ResponseEntity<>(new ApiResponse(true, "Limit set successfully"), HttpStatus.CREATED);
@@ -117,21 +94,11 @@ public class CardController {
                                              @RequestBody @Valid UpdateCardLimitRequest request,
                                              BindingResult bindingResult,
                                              @RequestHeader("Authorization") String authorizationHeader) {
-        if (bindingResult.hasFieldErrors()) {
-            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
-            return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
-        }
-
+        validateInput(bindingResult);
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
-        if (!cardService.isCardLinkedToUser(number, userId)) {
-            throw new CardAccessDeniedException("You can't edit limit on someone's card.");
-        }
-
-        if (request.getPerTransactionLimit().compareTo(defaultPerTransactionLimit) >= 0) {
-            throw new CardLimitException("The new per-transaction limit must be less than the system default limit of " + formatter.format(defaultPerTransactionLimit));
-        }
+        cardRequestsValidator.validateUpdateCardLimitRequest(number, userId, request.getPerTransactionLimit());
 
         Card card = cardService.getCardByNumber(number);
         cardLimitService.updateLimit(card, request.getPerTransactionLimit());
@@ -144,9 +111,7 @@ public class CardController {
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
-        if (!cardService.isCardLinkedToUser(number, userId)) {
-            throw new CardAccessDeniedException("You can't remove the limit on someone's card.");
-        }
+        cardRequestsValidator.validateRemoveCardLimitRequest(number, userId);
 
         Card card = cardService.getCardByNumber(number);
         cardLimitService.removeLimit(card);
@@ -158,6 +123,13 @@ public class CardController {
             throw new InvalidAuthorizationException("Invalid authorization header");
         }
         return authorizationHeader.substring(7);
+    }
+
+    private void validateInput(BindingResult bindingResult) {
+        if (bindingResult.hasFieldErrors()) {
+            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
+            throw new FieldValidationException("Validation failed", fieldErrors);
+        }
     }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {

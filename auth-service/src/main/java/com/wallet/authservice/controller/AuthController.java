@@ -6,7 +6,7 @@ import com.wallet.authservice.exception.FieldValidationException;
 import com.wallet.authservice.exception.IncorrectSearchPath;
 import com.wallet.authservice.exception.InvalidAuthorizationException;
 import com.wallet.authservice.service.*;
-import com.wallet.authservice.util.AuthValidator;
+import com.wallet.authservice.util.AuthRequestsValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,7 +28,7 @@ public class AuthController {
     private final UserPrototypeService userPrototypeService;
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
-    private final AuthValidator authValidator;
+    private final AuthRequestsValidator authRequestsValidator;
 
     @Value("${unverified-user.ttl.sec}")
     long unverifiedUserTtl;
@@ -42,7 +42,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse> signUp(@RequestBody @Valid SignUpRequest request, BindingResult bindingResult) {
         validateInput(bindingResult);
 
-        authValidator.validateSignUpRequest(
+        authRequestsValidator.validateSignUpRequest(
                 request.getPassword(),
                 request.getPasswordConfirmation(),
                 request.getEmail(),
@@ -64,7 +64,7 @@ public class AuthController {
     @PostMapping("/sign-in")
     public JwtAuthenticationResponse signIn(@RequestBody @Valid SignInRequest request, BindingResult bindingResult) {
         validateInput(bindingResult);
-        authValidator.validateSignInRequest(request.getEmail(), request.getPassword());
+        authRequestsValidator.validateSignInRequest(request.getEmail(), request.getPassword());
         return authService.signIn(request);
     }
 
@@ -80,7 +80,7 @@ public class AuthController {
         validateInput(bindingResult);
         String jwt = extractJwtFromHeader(authorizationHeader);
         String email = jwtService.extractEmailFromJwt(jwt);
-        authValidator.validateChangePasswordRequest(
+        authRequestsValidator.validateChangePasswordRequest(
                 email,
                 request.getOldPassword(),
                 request.getNewPassword(),
