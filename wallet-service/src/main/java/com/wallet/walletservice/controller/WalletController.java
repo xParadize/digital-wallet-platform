@@ -1,11 +1,13 @@
 package com.wallet.walletservice.controller;
 
 import com.wallet.walletservice.dto.*;
+import com.wallet.walletservice.exception.FieldValidationException;
 import com.wallet.walletservice.exception.IncorrectSearchPath;
 import com.wallet.walletservice.exception.InvalidAuthorizationException;
 import com.wallet.walletservice.service.JwtService;
 import com.wallet.walletservice.service.WalletService;
 import com.wallet.walletservice.util.CardDataValidator;
+import com.wallet.walletservice.util.WalletRequestsValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +27,7 @@ public class WalletController {
     private final CardDataValidator cardDataValidator;
     private final WalletService walletService;
     private final JwtService jwtService;
+    private final WalletRequestsValidator walletRequestsValidator;
 
     @RequestMapping(value = "/**")
     public ResponseEntity<ApiResponse> handleNotFound() {
@@ -32,41 +35,26 @@ public class WalletController {
     }
 
     @PostMapping("/cards")
-    public ResponseEntity<?> addCard(@RequestBody @Valid AddCardDto addCardDto,
+    public ResponseEntity<ApiResponse> addCard(@RequestBody @Valid AddCardDto addCardDto,
                                      BindingResult bindingResult,
                                      @RequestHeader("Authorization") String authorizationHeader) {
+        validateInput(bindingResult);
         String jwt = extractJwtFromHeader(authorizationHeader);
-        String email = jwtService.extractEmailFromJwt(jwt);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+        String email = jwtService.extractEmailFromJwt(jwt);
 
-        if (bindingResult.hasFieldErrors()) {
-            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
-            return new ResponseEntity<>(fieldErrors, HttpStatus.BAD_REQUEST);
-        }
-
-        if (cardDataValidator.isCardExpired(addCardDto.getExpirationDate())) {
-            return new ResponseEntity<>(new ApiResponse(false, "The card has expired"), HttpStatus.BAD_REQUEST);
-        }
-
-        if (cardDataValidator.isCardLinkedToUser(addCardDto.getNumber(), userId)) {
-            return new ResponseEntity<>(new ApiResponse(false, "It is not possible to add a card: it is already registered in the system"), HttpStatus.BAD_REQUEST);
-        }
-
+        walletRequestsValidator.validateAddCardRequest(addCardDto.getExpirationDate(), addCardDto.getNumber(), userId);
         walletService.saveCard(addCardDto, userId, email);
-
         return new ResponseEntity<>(new ApiResponse(true, "The request to add the card has been successfully sent. Expect an email notification after checking the data"), HttpStatus.OK);
     }
 
     @DeleteMapping("/cards/{number}")
-    public ResponseEntity<?> removeCard(@PathVariable("number") String number,
+    public ResponseEntity<ApiResponse> removeCard(@PathVariable("number") String number,
                                         @RequestHeader("Authorization") String authorizationHeader) {
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
-        if (!cardDataValidator.isCardLinkedToUser(number, userId)) {
-            return new ResponseEntity<>(new ApiResponse(false, "You can't remove someone's card"), HttpStatus.FORBIDDEN);
-        }
-
+        walletRequestsValidator.validateRemoveCardRequest(number, userId);
         walletService.removeCard(number, userId);
         return new ResponseEntity<>(new ApiResponse(true, "The card was successfully unlinked from your wallet"), HttpStatus.NO_CONTENT);
     }
@@ -91,6 +79,13 @@ public class WalletController {
             throw new InvalidAuthorizationException("Invalid authorization header");
         }
         return authorizationHeader.substring(7);
+    }
+
+    private void validateInput(BindingResult bindingResult) {
+        if (bindingResult.hasFieldErrors()) {
+            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
+            throw new FieldValidationException("Validation failed", fieldErrors);
+        }
     }
 
     private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
