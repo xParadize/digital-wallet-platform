@@ -5,6 +5,7 @@ import com.wallet.authservice.service.UserPrototypeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -44,9 +45,18 @@ public class SecurityConfiguration {
                     return corsConfiguration;
                 }))
                 .authorizeHttpRequests(request -> request
-                        .requestMatchers("/*").permitAll()
-                        .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/swagger-resources/*", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-resources/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/sign-up").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/sign-in").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/refresh-token").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/confirm-email/").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/change-password").hasAnyRole("USER", "ADMIN", "VERIFIED_EMAIL")
+                        .requestMatchers("/api/v1/card/**").hasAnyRole("USER", "ADMIN", "VERIFIED_EMAIL")
+                        .requestMatchers("/api/v1/transactions/**").hasAnyRole("USER", "ADMIN", "VERIFIED_EMAIL")
+                        .requestMatchers("/api/v1/wallet/**").hasAnyRole("USER", "ADMIN", "VERIFIED_EMAIL")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/user/exists/**").hasAnyRole("USER", "ADMIN", "VERIFIED_EMAIL")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/user/**").hasAnyRole("USER", "ADMIN", "VERIFIED_EMAIL")
                         .anyRequest().authenticated())
                 .sessionManagement(manager -> manager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
