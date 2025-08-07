@@ -6,7 +6,6 @@ import com.wallet.walletservice.exception.IncorrectSearchPath;
 import com.wallet.walletservice.exception.InvalidAuthorizationException;
 import com.wallet.walletservice.service.JwtService;
 import com.wallet.walletservice.service.WalletService;
-import com.wallet.walletservice.util.CardDataValidator;
 import com.wallet.walletservice.util.WalletRequestsValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +23,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @RequestMapping("/wallet")
 public class WalletController {
-    private final CardDataValidator cardDataValidator;
     private final WalletService walletService;
     private final JwtService jwtService;
     private final WalletRequestsValidator walletRequestsValidator;

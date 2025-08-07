@@ -3,7 +3,10 @@ package com.wallet.cardservice.controller;
 import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.enums.CardStatusAction;
-import com.wallet.cardservice.exception.*;
+import com.wallet.cardservice.exception.CardStatusActionException;
+import com.wallet.cardservice.exception.FieldValidationException;
+import com.wallet.cardservice.exception.IncorrectSearchPath;
+import com.wallet.cardservice.exception.InvalidAuthorizationException;
 import com.wallet.cardservice.service.CardLimitService;
 import com.wallet.cardservice.service.CardService;
 import com.wallet.cardservice.service.JwtService;
@@ -90,7 +93,7 @@ public class CardController {
     }
 
     @PatchMapping("/{number}/limit")
-    public ResponseEntity<?> updateCardLimit(@PathVariable("number") String number,
+    public ResponseEntity<ApiResponse> updateCardLimit(@PathVariable("number") String number,
                                              @RequestBody @Valid UpdateCardLimitRequest request,
                                              BindingResult bindingResult,
                                              @RequestHeader("Authorization") String authorizationHeader) {
@@ -106,8 +109,8 @@ public class CardController {
     }
 
     @DeleteMapping("/{number}/limit")
-    public ResponseEntity<?> removeCardLimit(@PathVariable("number") String number,
-                                             @RequestHeader("Authorization") String authorizationHeader) {
+    public ResponseEntity<ApiResponse> removeCardLimit(@PathVariable("number") String number,
+                                               @RequestHeader("Authorization") String authorizationHeader) {
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 

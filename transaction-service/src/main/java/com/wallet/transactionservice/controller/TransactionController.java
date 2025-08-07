@@ -8,6 +8,7 @@ import com.wallet.transactionservice.service.JwtService;
 import com.wallet.transactionservice.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -106,10 +107,10 @@ public class TransactionController {
     }
 
     @PostMapping("/{offer_id}")
-    public ResponseEntity<?> initiateTransaction(@PathVariable("offer_id") String offerId,
-                                                           @RequestBody @Valid PaymentRequestDto paymentRequestDto,
-                                                           BindingResult bindingResult,
-                                                           @RequestHeader("Authorization") String authorizationHeader) {
+    public ResponseEntity<ApiResponse> initiateTransaction(@PathVariable("offer_id") String offerId,
+                                                   @RequestBody @Valid PaymentRequestDto paymentRequestDto,
+                                                   BindingResult bindingResult,
+                                                   @RequestHeader("Authorization") String authorizationHeader) {
         validateInput(bindingResult);
 
         String jwt = extractJwtFromHeader(authorizationHeader);
@@ -118,9 +119,9 @@ public class TransactionController {
         PaymentResult paymentResult = transactionService.processPayment(userId, offerId, paymentRequestDto);
 
         if (paymentResult.requiresOtp()) {
-            return ResponseEntity.ok(paymentResult.message());
+            return new ResponseEntity<>(new ApiResponse(true, paymentResult.message()), HttpStatus.OK);
         }
-        return ResponseEntity.ok().build();
+        return new ResponseEntity<>(new ApiResponse(true,"Payment completed"), HttpStatus.OK);
     }
 
     private String extractJwtFromHeader(String authorizationHeader) {
