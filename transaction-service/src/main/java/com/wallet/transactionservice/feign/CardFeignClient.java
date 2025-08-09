@@ -12,9 +12,9 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @FeignClient(
-        name = "transaction-client",
+        name = "card-client",
         url = "http://localhost:8084")
-public interface TransactionClient {
+public interface CardFeignClient {
 
     @GetMapping("/api/v1/card")
     ResponseEntity<CardDetailsDto> getLinkedCard(@RequestParam("number") String number,

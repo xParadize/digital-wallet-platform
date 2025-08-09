@@ -7,7 +7,8 @@ import com.wallet.transactionservice.enums.CardType;
 import com.wallet.transactionservice.enums.TransactionCategory;
 import com.wallet.transactionservice.enums.TransactionStatus;
 import com.wallet.transactionservice.exception.TransactionNotFoundException;
-import com.wallet.transactionservice.feign.TransactionClient;
+import com.wallet.transactionservice.feign.AnalyticsFeignClient;
+import com.wallet.transactionservice.feign.CardFeignClient;
 import com.wallet.transactionservice.mapper.PaymentOfferMapper;
 import com.wallet.transactionservice.repository.TransactionRepository;
 import com.wallet.transactionservice.util.DateConverter;
@@ -31,13 +32,14 @@ import java.util.stream.Collectors;
 public class TransactionService {
     private final CacheService cacheService;
     private final TransactionRepository transactionRepository;
-    private final TransactionClient transactionClient;
+    private final CardFeignClient cardFeignClient;
     private final PaymentValidator paymentValidator;
     private final OtpService otpService;
     private final PaymentOfferMapper paymentOfferMapper;
     private final PaymentOfferEntityService paymentOfferEntityService;
     private final LocalDateValidator localDateValidator;
     private final DateConverter dateConverter;
+    private final AnalyticsFeignClient analyticsFeignClient;
 
     @Value("${transaction.per-page}")
     private int transactionsPerPage;
@@ -45,7 +47,7 @@ public class TransactionService {
     @Transactional
     public PaymentResult processPayment(UUID userId, String offerId, PaymentRequestDto paymentRequest) {
         PaymentOffer paymentOffer = getPaymentById(offerId);
-        CardDetailsDto cardDetailsDto = transactionClient.getLinkedCard(paymentRequest.getCardNumber(), userId).getBody();
+        CardDetailsDto cardDetailsDto = cardFeignClient.getLinkedCard(paymentRequest.getCardNumber(), userId).getBody();
 
         paymentValidator.validatePayment(paymentRequest, cardDetailsDto, userId, paymentOffer);
 
@@ -129,7 +131,7 @@ public class TransactionService {
     }
 
     private void finishTransactionInternal(Transaction transaction, PaymentOfferEntity paymentOfferEntity) {
-        transactionClient.subtractMoney(transaction.getUserId(), paymentOfferEntity.getAmount(), transaction.getCardNumber());
+        cardFeignClient.subtractMoney(transaction.getUserId(), paymentOfferEntity.getAmount(), transaction.getCardNumber());
         cacheService.removeOffer(transaction.getOffer().getId());
 
         transaction.setStatus(TransactionStatus.CONFIRMED);
@@ -147,7 +149,7 @@ public class TransactionService {
 
     public void validateUserCardAccessWithDate(String cardNumber, UUID userId,  LocalDate from, LocalDate to) {
         localDateValidator.validate(cardNumber, from, to);
-        CardDetailsDto cardDetailsDto = transactionClient.getLinkedCard(cardNumber, userId).getBody();
+        CardDetailsDto cardDetailsDto = cardFeignClient.getLinkedCard(cardNumber, userId).getBody();
         paymentValidator.validateCardOwnership(cardDetailsDto, userId);
     }
 
@@ -179,15 +181,18 @@ public class TransactionService {
         List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
 
         if (allTransactions.isEmpty()) {
-            return new PeriodGroupedExpenseDto(BigDecimal.ZERO, Collections.emptyList(), Collections.emptyList());
+            return new PeriodGroupedExpenseDto(BigDecimal.ZERO, null, Collections.emptyList(), Collections.emptyList());
         }
 
         List<Transaction> paginatedExpenses = findExpenseTransactionsByCardInPeriod(cardNumber, start, end, page);
 
         TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
 
+        String reportLink = analyticsFeignClient.analyzeExpenses(new CategorySpendingReportRequest(transactionAggregator.getCategorySpending(), cardNumber, from, to)).getBody();
+
         return new PeriodGroupedExpenseDto(
                 transactionAggregator.getTotalSpending(),
+                reportLink,
                 transactionAggregator.getCategorySpending(),
                 buildDailyTransactions(paginatedExpenses, transactionAggregator.getDailySpendingTotals())
         );
