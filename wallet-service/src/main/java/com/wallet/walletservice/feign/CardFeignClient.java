@@ -12,15 +12,15 @@ import java.util.List;
 import java.util.UUID;
 
 @FeignClient(
-        name = "wallet-client",
+        name = "card-client",
         url = "http://localhost:8084")
-public interface WalletClient {
+public interface CardFeignClient {
 
     @PostMapping("/api/v1/card")
     ResponseEntity<HttpStatus> saveCard(@RequestBody SaveCardDto saveCardDto);
 
     @GetMapping("/api/v1/card/linked")
-    boolean isCardLinkedToUser(@RequestParam("cardNumber") String cardNumber, @RequestParam("userId")UUID userId);
+    boolean isCardLinkedToUser(@RequestParam("cardNumber") String cardNumber, @RequestParam("userId") UUID userId);
 
     @GetMapping("/api/v1/cards")
     ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestParam("userId") UUID userId);

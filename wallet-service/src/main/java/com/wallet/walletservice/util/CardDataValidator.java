@@ -1,6 +1,6 @@
 package com.wallet.walletservice.util;
 
-import com.wallet.walletservice.feign.WalletClient;
+import com.wallet.walletservice.feign.CardFeignClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -10,14 +10,14 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 public class CardDataValidator {
-    private final WalletClient walletClient;
+    private final CardFeignClient cardFeignClient;
 
     public boolean isCardExpired(String expirationDate) {
         return expired(expirationDate);
     }
 
     public boolean isCardLinkedToUser(String cardNumber, UUID userId) {
-        return walletClient.isCardLinkedToUser(cardNumber, userId);
+        return cardFeignClient.isCardLinkedToUser(cardNumber, userId);
     }
 
     private boolean expired(String expirationDate) {

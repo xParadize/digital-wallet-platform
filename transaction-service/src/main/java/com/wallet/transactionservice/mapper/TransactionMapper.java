@@ -10,8 +10,8 @@ import org.mapstruct.ReportingPolicy;
 @Mapper(unmappedTargetPolicy = ReportingPolicy.IGNORE,
         componentModel = MappingConstants.ComponentModel.SPRING)
 public interface TransactionMapper {
-    @Mapping(target = "vendor", ignore = true)
-    @Mapping(target = "cardNumber", ignore = true)
+    @Mapping(source = "offer.vendor", target = "vendor")
+    @Mapping(source = "offer.category", target = "category")
     @Mapping(source = "confirmedAt", target = "completedAt")
     TransactionDto toDto(Transaction transaction);
 }

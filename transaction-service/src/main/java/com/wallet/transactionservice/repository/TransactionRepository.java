@@ -2,6 +2,7 @@ package com.wallet.transactionservice.repository;
 
 import com.wallet.transactionservice.entity.Transaction;
 import com.wallet.transactionservice.enums.TransactionStatus;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -21,4 +22,5 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
     List<Transaction> findAllByCardNumberAndConfirmedAtBetweenAndAmountLessThan(String cardNumber, Instant confirmedAtAfter, Instant confirmedAtBefore, BigDecimal amountIsLessThan, Pageable pageable);
     List<Transaction> findAllByCardNumberAndConfirmedAtBetweenAndAmountGreaterThan(String cardNumber, Instant confirmedAtAfter, Instant confirmedAtBefore, BigDecimal amountIsGreaterThan, Pageable pageable);
     Optional<Transaction> findFirstByCardNumberOrderByCreatedAtAsc(String cardNumber);
+    List<Transaction> findByCardNumberOrderByConfirmedAtDesc(String cardNumber, Limit limit);
 }

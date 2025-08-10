@@ -32,13 +32,6 @@ public class WalletControllerAdvice {
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<ApiResponse> handleJsonHttpMessageNotReadableException() {
-        ApiResponse response = new ApiResponse(false, "Invalid JSON input");
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-    }
-
     @ExceptionHandler(CardAccessDeniedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ResponseEntity<ApiResponse> handleCardAccessDeniedException(CardAccessDeniedException e) {

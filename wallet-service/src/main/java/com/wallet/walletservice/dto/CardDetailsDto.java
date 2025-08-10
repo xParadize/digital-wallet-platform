@@ -18,6 +18,6 @@ public class CardDetailsDto {
     private CardSecretDetails secretDetails;
     private boolean isFrozen;
     private boolean isBlocked;
-    private List<RecentTransactionsDto> recentTransactions;
+    private List<TransactionDto> recentTransactions;
     private Limit limit;
 }

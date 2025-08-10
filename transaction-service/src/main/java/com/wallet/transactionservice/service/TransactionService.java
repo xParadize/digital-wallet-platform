@@ -10,12 +10,14 @@ import com.wallet.transactionservice.exception.TransactionNotFoundException;
 import com.wallet.transactionservice.feign.AnalyticsFeignClient;
 import com.wallet.transactionservice.feign.CardFeignClient;
 import com.wallet.transactionservice.mapper.PaymentOfferMapper;
+import com.wallet.transactionservice.mapper.TransactionMapper;
 import com.wallet.transactionservice.repository.TransactionRepository;
 import com.wallet.transactionservice.util.DateConverter;
 import com.wallet.transactionservice.util.LocalDateValidator;
 import com.wallet.transactionservice.util.PaymentValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,7 @@ public class TransactionService {
     private final LocalDateValidator localDateValidator;
     private final DateConverter dateConverter;
     private final AnalyticsFeignClient analyticsFeignClient;
+    private final TransactionMapper transactionMapper;
 
     @Value("${transaction.per-page}")
     private int transactionsPerPage;
@@ -258,5 +261,12 @@ public class TransactionService {
     private List<Transaction> findIncomeTransactionsByCardInPeriod(String cardNumber, Instant start, Instant end, int page) {
         Pageable pageable = PageRequest.of(page, transactionsPerPage);
         return transactionRepository.findAllByCardNumberAndConfirmedAtBetweenAndAmountGreaterThan(cardNumber, start, end, BigDecimal.ZERO, pageable);
+    }
+
+    public List<TransactionDto> getLastTransactions(String cardNumber, int limit) {
+        List<Transaction> transactions = transactionRepository.findByCardNumberOrderByConfirmedAtDesc(cardNumber, Limit.of(limit));
+        return transactions.stream()
+                .map(transactionMapper::toDto)
+                .collect(Collectors.toList());
     }
 }
