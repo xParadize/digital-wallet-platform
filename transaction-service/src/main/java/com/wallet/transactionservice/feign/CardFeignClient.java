@@ -11,9 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-@FeignClient(
-        name = "card-client",
-        url = "http://localhost:8084")
+@FeignClient(name = "${digital-wallet-platform.services.card-service.uri}")
 public interface CardFeignClient {
 
     @GetMapping("/api/v1/card")

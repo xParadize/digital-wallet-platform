@@ -1,5 +1,24 @@
+digital-wallet-platform:
+  services:
+    analytics-service:
+      uri: ${ANALYTICS_SERVICE_BASE_URL}
+    auth-service:
+      uri: ${AUTH_SERVICE_BASE_URL}
+    card-service:
+      uri: ${CARD_SERVICE_BASE_URL}
+    notification-service:
+      uri: ${NOTIFICATION_SERVICE_BASE_URL}
+    transaction-service:
+      uri: ${TRANSACTION_SERVICE_BASE_URL}
+    transaction-generator:
+      uri: ${TRANSACTION_GENERATOR_BASE_URL}
+    user-service:
+      uri: ${USER_SERVICE_BASE_URL}
+    wallet-service:
+      uri: ${WALLET_SERVICE_BASE_URL}
+
 server:
-  port: 8084
+  port: 8004
 
 spring:
   application:
@@ -8,7 +27,7 @@ spring:
     import: optional:file:.env[.properties]
   datasource:
     username: ${POSTGRES_USERNAME}
-    url: jdbc:postgresql://localhost:5432/card-service
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_CARD_SERVICE_DB}
     password: ${POSTGRES_PASSWORD}
   jpa:
     properties:
@@ -22,6 +41,15 @@ spring:
     openfeign:
       okhttp:
         enabled: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST}:${EUREKA_PORT}/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
 
 security:
   jwt:

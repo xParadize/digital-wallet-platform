@@ -9,10 +9,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(
-        name = "user-client",
-        url = "http://localhost:8082")
-public interface UnverifiedUserClient {
+@FeignClient(name = "${digital-wallet-platform.services.user-service.uri}")
+public interface UserFeignClient {
 
     @PostMapping("/api/v1/user")
     ResponseEntity<HttpStatus> saveUser(@RequestBody UnverifiedUser unverifiedUser);

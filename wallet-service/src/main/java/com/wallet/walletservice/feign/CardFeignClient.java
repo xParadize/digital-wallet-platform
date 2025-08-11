@@ -11,9 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-@FeignClient(
-        name = "card-client",
-        url = "http://localhost:8084")
+@FeignClient(name = "${digital-wallet-platform.services.card-service.uri}")
 public interface CardFeignClient {
 
     @PostMapping("/api/v1/card")

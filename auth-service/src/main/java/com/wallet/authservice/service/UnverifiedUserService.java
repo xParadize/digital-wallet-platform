@@ -5,7 +5,7 @@ import com.wallet.authservice.entity.RefreshToken;
 import com.wallet.authservice.entity.UnverifiedUser;
 import com.wallet.authservice.entity.UserPrototype;
 import com.wallet.authservice.enums.Role;
-import com.wallet.authservice.feign.UnverifiedUserClient;
+import com.wallet.authservice.feign.UserFeignClient;
 import com.wallet.authservice.kafka.AuthKafkaProducer;
 import com.wallet.authservice.mapper.UnverifiedUserMapper;
 import com.wallet.authservice.repository.UnverifiedUserRepository;
@@ -24,14 +24,14 @@ public class UnverifiedUserService {
     private final UnverifiedUserMapper unverifiedUserMapper;
     private final PasswordService passwordService;
     private final AuthKafkaProducer authKafkaProducer;
-    private final UnverifiedUserClient unverifiedUserClient;
+    private final UserFeignClient userFeignClient;
     private final JwtService jwtService;
     private final UserRoleService userRoleService;
     private final UserPrototypeService userPrototypeService;
     private final RefreshTokenService refreshTokenService;
 
     public boolean existsByEmailOrPhone(String email, String phone) {
-        return unverifiedUserClient.existsByEmailOrPhone(email, phone);
+        return userFeignClient.existsByEmailOrPhone(email, phone);
     }
 
     @Transactional
@@ -91,6 +91,6 @@ public class UnverifiedUserService {
     }
 
     private void saveUser(UnverifiedUser unverifiedUser) {
-        unverifiedUserClient.saveUser(unverifiedUser);
+        userFeignClient.saveUser(unverifiedUser);
     }
 }

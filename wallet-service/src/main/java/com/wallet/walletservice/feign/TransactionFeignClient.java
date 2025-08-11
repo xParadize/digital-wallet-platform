@@ -7,9 +7,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
-@FeignClient(
-        name = "transaction-client",
-        url = "http://localhost:8006")
+@FeignClient(name = "${digital-wallet-platform.services.transaction-service.uri}")
 public interface TransactionFeignClient {
 
     @GetMapping("/api/v1/transactions/")

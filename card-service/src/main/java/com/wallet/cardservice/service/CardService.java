@@ -10,7 +10,7 @@ import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.CardNotFoundException;
 import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.exception.InsufficientBalanceException;
-import com.wallet.cardservice.feign.CardClient;
+import com.wallet.cardservice.feign.CardFeignClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.CardMapper;
 import com.wallet.cardservice.mapper.HolderMapper;
@@ -34,7 +34,7 @@ public class CardService {
     private final CardMapper cardMapper;
     private final CardInfoCollector cardInfoCollector;
     private final CardKafkaProducer cardKafkaProducer;
-    private final CardClient cardClient;
+    private final CardFeignClient cardFeignClient;
     private final HolderMapper holderMapper;
     private final CardDataValidator cardDataValidator;
     private final LimitRepository limitRepository;
@@ -72,7 +72,7 @@ public class CardService {
     }
 
     private Holder getHolder(UUID userId) {
-        HolderDto dto = cardClient.getHolder(userId).getBody();
+        HolderDto dto = cardFeignClient.getHolder(userId).getBody();
         return holderMapper.toEntity(dto);
     }
 

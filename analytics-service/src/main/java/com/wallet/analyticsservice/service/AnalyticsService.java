@@ -41,7 +41,7 @@ public class AnalyticsService {
     }
 
     public String getLinkToReport(UUID reportId) {
-        return "http://localhost:8087/analytics/" + reportId;
+        return "http://localhost:8008/analytics/" + reportId;
     }
 
     public ExpenseAnalysisReport getExpenseReportById(UUID reportId) {

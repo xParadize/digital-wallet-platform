@@ -6,9 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@FeignClient(
-        name = "analytics-client",
-        url = "http://localhost:8087")
+@FeignClient(name = "${digital-wallet-platform.services.analytics-service.uri}")
 public interface AnalyticsFeignClient {
 
     @PostMapping("/api/v1/analytics/")
