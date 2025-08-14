@@ -50,7 +50,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/auth/sign-up").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/sign-in").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/refresh-token").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/auth/confirm-email/").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/auth/confirm-email/{code}").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/change-password").hasAnyRole("USER", "ADMIN", "VERIFIED_EMAIL")
                         .requestMatchers("/api/v1/card/**").hasAnyRole("USER", "ADMIN", "VERIFIED_EMAIL")
                         .requestMatchers("/api/v1/transactions/**").hasAnyRole("USER", "ADMIN", "VERIFIED_EMAIL")

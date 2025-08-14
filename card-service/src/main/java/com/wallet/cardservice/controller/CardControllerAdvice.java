@@ -39,6 +39,13 @@ public class CardControllerAdvice {
         return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(CardNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ResponseEntity<ApiResponse> handleCardNotFoundException(CardNotFoundException e) {
+        ApiResponse response = new ApiResponse(false, e.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(CardStatusActionException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ResponseEntity<ApiResponse> handleCardStatusActionException(CardStatusActionException e) {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wallet.transactionservice.dto.ApiResponse;
+import com.wallet.transactionservice.dto.InputFieldError;
 import com.wallet.transactionservice.dto.ValidationErrorResponse;
 import com.wallet.transactionservice.exception.*;
 import feign.FeignException;
@@ -11,12 +12,16 @@ import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 @AllArgsConstructor
@@ -35,6 +40,13 @@ public class TransactionControllerAdvice {
     @ExceptionHandler(CardNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ResponseEntity<ApiResponse> handleCardNotFoundException(CardNotFoundException e) {
+        ApiResponse response = new ApiResponse(false, e.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(PaymentOfferEntityNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ResponseEntity<ApiResponse> handlePaymentOfferEntityNotFoundException(PaymentOfferEntityNotFoundException e) {
         ApiResponse response = new ApiResponse(false, e.getMessage());
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
@@ -88,13 +100,23 @@ public class TransactionControllerAdvice {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
-    @ExceptionHandler(FieldValidationException.class)
+    @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<ValidationErrorResponse> handleFieldValidationException(FieldValidationException e) {
+    public ResponseEntity<ValidationErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
+        List<InputFieldError> errors = e.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.groupingBy(
+                        FieldError::getField,
+                        Collectors.mapping(FieldError::getDefaultMessage, Collectors.toList())
+                ))
+                .entrySet()
+                .stream()
+                .map(entry -> new InputFieldError(entry.getKey(), entry.getValue()))
+                .toList();
+
         ValidationErrorResponse errorResponse = new ValidationErrorResponse(
                 false,
-                e.getMessage(),
-                e.getErrors(),
+                "Validation failed",
+                errors,
                 Instant.now()
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);

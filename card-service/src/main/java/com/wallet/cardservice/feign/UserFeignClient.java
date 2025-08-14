@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.UUID;
 
-@FeignClient(name = "${digital-wallet-platform.services.card-service.uri}")
-public interface CardFeignClient {
+@FeignClient(name = "${digital-wallet-platform.services.user-service.uri}")
+public interface UserFeignClient {
 
     @GetMapping("/api/v1/user/{id}/holder")
     ResponseEntity<HolderDto> getHolder(@PathVariable("id") UUID userId);
