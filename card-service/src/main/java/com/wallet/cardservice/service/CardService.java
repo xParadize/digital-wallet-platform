@@ -3,6 +3,8 @@ package com.wallet.cardservice.service;
 import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.entity.Limit;
+import com.wallet.cardservice.enums.CardSortOrder;
+import com.wallet.cardservice.enums.CardSortType;
 import com.wallet.cardservice.enums.CardStatusAction;
 import com.wallet.cardservice.enums.CardType;
 import com.wallet.cardservice.event.CardLinkedEvent;
@@ -10,6 +12,7 @@ import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.CardNotFoundException;
 import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.exception.InsufficientBalanceException;
+import com.wallet.cardservice.feign.TransactionFeignClient;
 import com.wallet.cardservice.feign.UserFeignClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.CardMapper;
@@ -25,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -38,19 +42,76 @@ public class CardService {
     private final HolderMapper holderMapper;
     private final CardDataValidator cardDataValidator;
     private final LimitRepository limitRepository;
+    private final TransactionFeignClient transactionFeignClient;
 
-    public List<CardPreviewDto> getLinkedCards(UUID userId) {
-        return cardRepository.findAllByUserId(userId).stream()
-                .map(card -> CardPreviewDto.builder()
-                        .maskedCardNumber(maskCardNumber(card.getNumber()))
-                        .issuer(card.getCardIssuer())
-                        .scheme(card.getCardScheme())
-                        .cardType(CardType.DEBIT)
-                        .isFrozen(false)
-                        .isBlocked(false)
-                        .balance(card.getMoney())
-                        .build())
+    public List<CardPreviewDto> getLinkedCards(UUID userId, CardSortType sort, CardSortOrder order) {
+        // в часто используемых картах можно сохранять карты в редис после оплаты и оттуда брать по порядку с ttl = 2 weeks
+        List<Card> result = switch (sort) {
+            case RECENT -> findAllCardsByLastUse(userId, order);
+            case BALANCE -> findAllCardsByBalance(userId, order);
+            case NAME -> findAllCardsByIssuerName(userId, order);
+            case LIMIT -> findAllCardsByLimit(userId, order);
+            case EXPIRATION -> findAllCardsByExpiration(userId, order);
+        };
+
+        return result.stream()
+                .map(this::mapToCardPreviewDto)
                 .toList();
+    }
+
+    private List<Card> findAllCardsByBalance(UUID userId, CardSortOrder order) {
+        switch (order) {
+            case DESC -> {
+                return cardRepository.findByUserIdOrderByMoneyDesc(userId);
+            } case ASC -> {
+                return cardRepository.findByUserIdOrderByMoneyAsc(userId);
+            } default -> {
+                return List.of();
+            }
+        }
+    }
+
+    private List<Card> findAllCardsByIssuerName(UUID userId, CardSortOrder order) {
+        switch (order) {
+            case DALPH -> {
+                return cardRepository.findByUserIdOrderByCardIssuerDesc(userId);
+            } case AALPH -> {
+                return cardRepository.findByUserIdOrderByCardIssuerAsc(userId);
+            } default -> {
+                return List.of();
+            }
+        }
+    }
+
+    private List<Card> findAllCardsByExpiration(UUID userId, CardSortOrder order) {
+        switch (order) {
+            case EARLIEST -> {
+                return cardRepository.findByUserIdOrderByExpirationDateEarliest(userId);
+            } case LATEST -> {
+                return cardRepository.findByUserIdOrderByExpirationDateLatest(userId);
+            } default -> {
+                return List.of();
+            }
+        }
+    }
+
+    private List<Card> findAllCardsByLastUse(UUID userId, CardSortOrder order) {
+        Set<String> lastUsedCardNumbers = transactionFeignClient.getLastUsedCardNumbers(userId);
+        return lastUsedCardNumbers.stream()
+                .map(t -> cardRepository.getCardByNumber(t).orElseThrow(() -> new CardNotFoundException("Card not found")))
+                .toList();
+    }
+
+    private List<Card> findAllCardsByLimit(UUID userId, CardSortOrder order) {
+        switch (order) {
+            case DESC -> {
+                return cardRepository.findByUserIdOrderByLimitValueDesc(userId);
+            } case ASC -> {
+                return cardRepository.findByUserIdOrderByLimitValueAsc(userId);
+            } default -> {
+                return List.of();
+            }
+        }
     }
 
     public CardDetailsDto getLinkedCard(String number, UUID userId) {
@@ -190,5 +251,17 @@ public class CardService {
         }
         card.setMoney(card.getMoney().subtract(amount));
         cardRepository.save(card);
+    }
+
+    private CardPreviewDto mapToCardPreviewDto(Card card) {
+        return CardPreviewDto.builder()
+                .maskedCardNumber(maskCardNumber(card.getNumber()))
+                .issuer(card.getCardIssuer())
+                .scheme(card.getCardScheme())
+                .cardType(CardType.DEBIT)
+                .isFrozen(card.isFrozen())
+                .isBlocked(card.isBlocked())
+                .balance(card.getMoney())
+                .build();
     }
 }

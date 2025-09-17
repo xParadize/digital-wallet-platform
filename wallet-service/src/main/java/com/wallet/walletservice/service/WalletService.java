@@ -1,6 +1,8 @@
 package com.wallet.walletservice.service;
 
 import com.wallet.walletservice.dto.*;
+import com.wallet.walletservice.enums.CardSortOrder;
+import com.wallet.walletservice.enums.CardSortType;
 import com.wallet.walletservice.feign.CardFeignClient;
 import com.wallet.walletservice.feign.TransactionFeignClient;
 import com.wallet.walletservice.mapper.CardDtoMapper;
@@ -28,8 +30,8 @@ public class WalletService {
         cardFeignClient.saveCard(saveCardDto);
     }
 
-    public List<CardPreviewDto> getLinkedCards(UUID userId) {
-        return cardFeignClient.getLinkedCards(userId).getBody();
+    public List<CardPreviewDto> getLinkedCards(UUID userId, CardSortType sort, CardSortOrder order) {
+        return cardFeignClient.getLinkedCards(userId, sort, order).getBody();
     }
 
     public CardDetailsDto getLinkedCard(String number, UUID userId) {

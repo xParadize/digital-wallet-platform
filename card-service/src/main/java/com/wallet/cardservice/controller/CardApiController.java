@@ -1,6 +1,8 @@
 package com.wallet.cardservice.controller;
 
 import com.wallet.cardservice.dto.*;
+import com.wallet.cardservice.enums.CardSortOrder;
+import com.wallet.cardservice.enums.CardSortType;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.IncorrectSearchPath;
 import com.wallet.cardservice.service.CardService;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -59,8 +62,10 @@ public class CardApiController {
     }
 
     @GetMapping("/cards")
-    public ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestParam("userId") UUID userId) {
-        return new ResponseEntity<>(cardService.getLinkedCards(userId), HttpStatus.OK);
+    public ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestParam("userId") UUID userId,
+                                                               @RequestParam("sort") CardSortType sort,
+                                                               @RequestParam("order") CardSortOrder order) {
+        return new ResponseEntity<>(cardService.getLinkedCards(userId, sort, order), HttpStatus.OK);
     }
 
     @GetMapping("/card/{number}/status")

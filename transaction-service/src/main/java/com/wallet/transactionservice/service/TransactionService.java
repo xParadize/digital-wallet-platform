@@ -269,4 +269,10 @@ public class TransactionService {
                 .map(transactionMapper::toDto)
                 .collect(Collectors.toList());
     }
+
+    public Set<String> lastUsedCardNumbers(UUID userId) {
+        return transactionRepository.findAllByUserIdOrderByConfirmedAtDesc(userId).stream()
+                .map(Transaction::getCardNumber)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
 }
