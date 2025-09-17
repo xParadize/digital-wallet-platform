@@ -31,9 +31,6 @@ public class WalletController {
     private final JwtService jwtService;
     private final WalletRequestsValidator walletRequestsValidator;
 
-//    private static final String DEFAULT_CARD_SORT_TYPE = "RECENT";
-//    private static final String DEFAULT_CARD_SORT_ORDER = "ASC";
-
     @RequestMapping(value = "/**")
     public ResponseEntity<ApiResponse> handleNotFound() {
         throw new IncorrectSearchPath();
