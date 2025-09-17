@@ -23,4 +23,5 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
     List<Transaction> findAllByCardNumberAndConfirmedAtBetweenAndAmountGreaterThan(String cardNumber, Instant confirmedAtAfter, Instant confirmedAtBefore, BigDecimal amountIsGreaterThan, Pageable pageable);
     Optional<Transaction> findFirstByCardNumberOrderByCreatedAtAsc(String cardNumber);
     List<Transaction> findByCardNumberOrderByConfirmedAtDesc(String cardNumber, Limit limit);
+    List<Transaction> findAllByUserIdOrderByConfirmedAtDesc(UUID userId);
 }

@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -26,6 +28,11 @@ public class TransactionApiController {
     @GetMapping("/")
     public List<TransactionDto> getTransactions(@RequestParam("cardNumber") String cardNumber, @RequestParam("limit") int limit) {
         return transactionService.getLastTransactions(cardNumber, limit);
+    }
+
+    @GetMapping("/cards/last-used")
+    public Set<String> getLastUsedCardNumbers(@RequestParam("userId") UUID userId) {
+        return transactionService.lastUsedCardNumbers(userId);
     }
 
     @PostMapping("/confirm")

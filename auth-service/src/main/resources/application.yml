@@ -63,4 +63,6 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
   instance:
-    prefer-ip-address: true
+    hostname: localhost
+    prefer-ip-address: false
+    ip-address: 127.0.0.1

@@ -11,7 +11,7 @@ import lombok.Setter;
 public class RefreshTokenRequest {
 
     @NotBlank(message = "Refresh token is required")
-    @Size(min = 32, max = 32, message = "Refresh token must be exactly 32 characters long")
+    @Size(min = 26, max = 26, message = "Refresh token must be exactly 26 characters long")
     @Pattern(
             regexp = "^[A-Za-z0-9_-]+$",
             message = "Refresh token contains invalid characters"

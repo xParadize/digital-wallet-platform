@@ -1,6 +1,8 @@
 package com.wallet.walletservice.controller;
 
 import com.wallet.walletservice.dto.*;
+import com.wallet.walletservice.enums.CardSortOrder;
+import com.wallet.walletservice.enums.CardSortType;
 import com.wallet.walletservice.exception.FieldValidationException;
 import com.wallet.walletservice.exception.IncorrectSearchPath;
 import com.wallet.walletservice.exception.InvalidAuthorizationException;
@@ -9,6 +11,7 @@ import com.wallet.walletservice.service.WalletService;
 import com.wallet.walletservice.util.WalletRequestsValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -19,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/wallet")
@@ -26,6 +30,9 @@ public class WalletController {
     private final WalletService walletService;
     private final JwtService jwtService;
     private final WalletRequestsValidator walletRequestsValidator;
+
+//    private static final String DEFAULT_CARD_SORT_TYPE = "RECENT";
+//    private static final String DEFAULT_CARD_SORT_ORDER = "ASC";
 
     @RequestMapping(value = "/**")
     public ResponseEntity<ApiResponse> handleNotFound() {
@@ -58,10 +65,20 @@ public class WalletController {
     }
 
     @GetMapping("/cards")
-    public ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestHeader("Authorization") String authorizationHeader) {
+    public ResponseEntity<List<CardPreviewDto>> getLinkedCards(
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String order,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-        return new ResponseEntity<>(walletService.getLinkedCards(userId), HttpStatus.OK);
+
+        CardSort cardSort = walletRequestsValidator.validateGetLinkedCardsRequest(sort, order);
+
+        return new ResponseEntity<>(
+                walletService.getLinkedCards(userId, cardSort.getType(), cardSort.getOrder()),
+                HttpStatus.OK
+        );
     }
 
     @GetMapping("/cards/{number}")
