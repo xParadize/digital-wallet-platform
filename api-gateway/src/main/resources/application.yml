@@ -1,0 +1,15 @@
+server:
+  port: 8991
+  forward-headers-strategy: framework
+
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: auth-service
+              uri: http://localhost:8001
+              predicates:
+                - Path=/auth/**
+                -
