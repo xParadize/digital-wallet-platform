@@ -3,13 +3,65 @@ server:
   forward-headers-strategy: framework
 
 spring:
+  application:
+    name: api-gateway
+  config:
+    import: optional:file:.env[.properties]
   cloud:
     gateway:
       server:
         webflux:
+          default-filters:
+            - PreserveHostHeader
           routes:
             - id: auth-service
-              uri: http://localhost:8001
+              uri: lb://${AUTH_SERVICE_BASE_URL}
               predicates:
                 - Path=/auth/**
-                -
+            - id: card-service
+              uri: lb://${CARD_SERVICE_BASE_URL}
+              predicates:
+                - Path=/cards/**
+            - id: user-service
+              uri: lb://${USER_SERVICE_BASE_URL}
+              predicates:
+                - Path=/users/**
+            - id: wallet-service
+              uri: lb://${WALLET_SERVICE_BASE_URL}
+              predicates:
+                - Path=/wallet/**
+            - id: transaction-service
+              uri: lb://${TRANSACTION_SERVICE_BASE_URL}
+              predicates:
+                - Path=/transactions/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST}:${EUREKA_PORT}/eureka/
+    register-with-eureka: false
+    fetch-registry: true
+    registry-fetch-interval-seconds: ${EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL}
+  instance:
+    lease-renewal-interval-in-seconds: ${EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL}
+    lease-expiration-duration-in-seconds: ${EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION}
+    hostname: ${EUREKA_INSTANCE_HOSTNAME}
+    prefer-ip-address: false
+    ip-address: ${EUREKA_INSTANCE_IP_ADDRESS}
+
+management:
+  tracing:
+    sampling:
+      probability: ${TRACING_PROBABILITY}
+    propagation:
+      type: b3
+    baggage:
+      enabled: true
+      remote-fields: service-instance, service-port
+    enabled: true
+    include-eureka-healthcheck: false
+  zipkin:
+    tracing:
+      endpoint: http://${ZIPKIN_HOST}:${ZIPKIN_PORT}/api/v2/spans
+      export:
+        enabled: true

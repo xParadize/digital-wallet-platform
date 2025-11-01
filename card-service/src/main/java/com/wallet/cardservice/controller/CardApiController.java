@@ -18,7 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/cards")
 public class CardApiController {
     private final CardService cardService;
 
@@ -27,7 +27,7 @@ public class CardApiController {
         throw new IncorrectSearchPath();
     }
 
-    @GetMapping("/card")
+    @GetMapping()
     public ResponseEntity<CardDetailsDto> getLinkedCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId) {
         if (!cardService.isCardLinkedToUser(number, userId)) {
             throw new CardAccessDeniedException("Access to the card is forbidden");
@@ -61,7 +61,7 @@ public class CardApiController {
         return cardService.isCardLinkedToUser(cardNumber, userId);
     }
 
-    @GetMapping("/cards")
+    @GetMapping("/cardsqq")
     public ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestParam("userId") UUID userId,
                                                                @RequestParam("sort") CardSortType sort,
                                                                @RequestParam("order") CardSortOrder order) {

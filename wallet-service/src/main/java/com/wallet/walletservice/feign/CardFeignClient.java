@@ -30,7 +30,7 @@ public interface CardFeignClient {
             @RequestParam("order") CardSortOrder order
     );
 
-    @GetMapping("/api/v1/card")
+    @GetMapping("/api/v1/cards")
     ResponseEntity<CardDetailsDto> getLinkedCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId);
 
     @DeleteMapping("/api/v1/card")

@@ -168,6 +168,14 @@ services:
       start_period: 60s
       retries: 5
 
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - spring
+
   transaction-generator:
     container_name: "transaction-generator"
     build: ./transaction-generator
