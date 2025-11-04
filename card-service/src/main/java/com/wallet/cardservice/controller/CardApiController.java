@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -27,12 +26,9 @@ public class CardApiController {
         throw new IncorrectSearchPath();
     }
 
-    @GetMapping()
-    public ResponseEntity<CardDetailsDto> getLinkedCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId) {
-        if (!cardService.isCardLinkedToUser(number, userId)) {
-            throw new CardAccessDeniedException("Access to the card is forbidden");
-        }
-        return new ResponseEntity<>(cardService.getLinkedCard(number, userId), HttpStatus.OK);
+    @GetMapping("/{cardId}")
+    public ResponseEntity<CardDetailsDto> getCardById(@PathVariable("cardId") Long cardId, @RequestParam("userId") UUID userId) {
+        return new ResponseEntity<>(cardService.getCardById(cardId, userId), HttpStatus.OK);
     }
 
     @PostMapping("/card")
@@ -41,25 +37,25 @@ public class CardApiController {
         return ResponseEntity.ok(HttpStatus.OK);
     }
 
-    @DeleteMapping("/card")
-    public ResponseEntity<HttpStatus> removeCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId) {
-        cardService.removeCard(number, userId);
-        return ResponseEntity.ok(HttpStatus.NO_CONTENT);
-    }
-
-    @PatchMapping("/card")
-    public ResponseEntity<HttpStatus> subtractMoney(@RequestParam("userId") UUID userId,
-                                                    @RequestParam("amount") BigDecimal amount,
-                                                    @RequestParam("cardNumber") String cardNumber) {
-        cardService.subtractMoney(userId, amount, cardNumber);
-        return ResponseEntity.ok(HttpStatus.OK);
-    }
-
-    @GetMapping("/card/linked")
-    public boolean isCardLinkedToUser(@RequestParam("cardNumber") String cardNumber,
-                                             @RequestParam("userId") UUID userId) {
-        return cardService.isCardLinkedToUser(cardNumber, userId);
-    }
+//    @DeleteMapping("/card")
+//    public ResponseEntity<HttpStatus> removeCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId) {
+//        cardService.removeCard(number, userId);
+//        return ResponseEntity.ok(HttpStatus.NO_CONTENT);
+//    }
+//
+//    @PatchMapping("/card")
+//    public ResponseEntity<HttpStatus> subtractMoney(@RequestParam("userId") UUID userId,
+//                                                    @RequestParam("amount") BigDecimal amount,
+//                                                    @RequestParam("cardNumber") String cardNumber) {
+//        cardService.subtractMoney(userId, amount, cardNumber);
+//        return ResponseEntity.ok(HttpStatus.OK);
+//    }
+//
+//    @GetMapping("/card/linked")
+//    public boolean isCardLinkedToUser(@RequestParam("cardNumber") String cardNumber,
+//                                             @RequestParam("userId") UUID userId) {
+//        return cardService.isCardLinkedToUser(cardNumber, userId);
+//    }
 
     @GetMapping("/cardsqq")
     public ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestParam("userId") UUID userId,

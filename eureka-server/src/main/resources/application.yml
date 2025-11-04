@@ -1,6 +1,12 @@
 server:
   port: 8761
 
+spring:
+  application:
+    name: eureka-server
+  config:
+    import: optional:file:.env[.properties]
+
 eureka:
   instance:
     hostname: ${EUREKA_INSTANCE_HOSTNAME}

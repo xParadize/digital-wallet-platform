@@ -27,8 +27,8 @@ public class UserService {
         return userRepository.existsByEmailOrPhone(email, phone);
     }
 
-    public HolderDto getHolder(UUID userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("Unable to load holder's name and lastname"));
+    public HolderDto getCardHolder(UUID userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("Unable to load holder's info"));
         return new HolderDto(user.getName(), user.getLastname(), user.getId());
     }
 }

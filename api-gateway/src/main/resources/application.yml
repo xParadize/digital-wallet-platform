@@ -29,7 +29,7 @@ spring:
             - id: wallet-service
               uri: lb://${WALLET_SERVICE_BASE_URL}
               predicates:
-                - Path=/wallet/**
+                - Path=/api/v1/wallet/**
             - id: transaction-service
               uri: lb://${TRANSACTION_SERVICE_BASE_URL}
               predicates:

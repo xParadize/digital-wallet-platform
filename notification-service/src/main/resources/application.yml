@@ -40,7 +40,7 @@ eureka:
   client:
     service-url:
       defaultZone: http://${EUREKA_HOST}:${EUREKA_PORT}/eureka/
-    register-with-eureka: false
+    register-with-eureka: true
     fetch-registry: true
     registry-fetch-interval-seconds: ${EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL}
   instance:

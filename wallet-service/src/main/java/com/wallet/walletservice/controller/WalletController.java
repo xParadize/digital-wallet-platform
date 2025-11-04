@@ -1,8 +1,6 @@
 package com.wallet.walletservice.controller;
 
 import com.wallet.walletservice.dto.*;
-import com.wallet.walletservice.enums.CardSortOrder;
-import com.wallet.walletservice.enums.CardSortType;
 import com.wallet.walletservice.exception.FieldValidationException;
 import com.wallet.walletservice.exception.IncorrectSearchPath;
 import com.wallet.walletservice.exception.InvalidAuthorizationException;
@@ -25,7 +23,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/wallet")
+@RequestMapping("/api/v1/wallet")
 public class WalletController {
     private final WalletService walletService;
     private final JwtService jwtService;
@@ -34,6 +32,14 @@ public class WalletController {
     @RequestMapping(value = "/**")
     public ResponseEntity<ApiResponse> handleNotFound() {
         throw new IncorrectSearchPath();
+    }
+
+    @GetMapping("/cards/{cardId}")
+    public ResponseEntity<CardDetailsDto> getCard(@PathVariable("cardId") Long cardId,
+                                                        @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+        return new ResponseEntity<>(walletService.getCardById(cardId, userId), HttpStatus.OK);
     }
 
     @PostMapping("/cards")
@@ -76,14 +82,6 @@ public class WalletController {
                 walletService.getLinkedCards(userId, cardSort.getType(), cardSort.getOrder()),
                 HttpStatus.OK
         );
-    }
-
-    @GetMapping("/cards/{number}")
-    public ResponseEntity<CardDetailsDto> getLinkedCard(@PathVariable("number") String number,
-                                                        @RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = extractJwtFromHeader(authorizationHeader);
-        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-        return new ResponseEntity<>(walletService.getLinkedCard(number, userId), HttpStatus.OK);
     }
 
     private String extractJwtFromHeader(String authorizationHeader) {

@@ -17,10 +17,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class WalletService {
     private final CardFeignClient cardFeignClient;
-    private final TransactionFeignClient transactionFeignClient;
     private final CardDtoMapper cardDtoMapper;
-
-    private final int LAST_TRANSACTIONS_LIMIT = 3;
 
     @Transactional
     public void saveCard(AddCardDto addCardDto, UUID userId, String email) {
@@ -34,11 +31,8 @@ public class WalletService {
         return cardFeignClient.getLinkedCards(userId, sort, order).getBody();
     }
 
-    public CardDetailsDto getLinkedCard(String number, UUID userId) {
-        CardDetailsDto cardDetails = cardFeignClient.getLinkedCard(number, userId).getBody();
-        List<TransactionDto> recentTransactions = transactionFeignClient.getRecentTransactions(number, LAST_TRANSACTIONS_LIMIT);
-        cardDetails.setRecentTransactions(recentTransactions);
-        return cardDetails;
+    public CardDetailsDto getCardById(Long cardId, UUID userId) {
+        return cardFeignClient.getCardById(cardId, userId).getBody();
     }
 
     @Transactional

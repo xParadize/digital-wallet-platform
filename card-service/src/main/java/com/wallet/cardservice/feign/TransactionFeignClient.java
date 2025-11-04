@@ -1,9 +1,12 @@
 package com.wallet.cardservice.feign;
 
+import com.wallet.cardservice.dto.TransactionDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -12,4 +15,7 @@ public interface TransactionFeignClient {
 
     @GetMapping("/api/v1/transactions/cards/last-used")
     Set<String> getLastUsedCardNumbers(@RequestParam("userId") UUID userId);
+
+    @GetMapping("/api/v1/transactions/{cardNumber}/recent")
+    List<TransactionDto> getRecentTransactions(@PathVariable("cardNumber") String cardNumber, @RequestParam("count") int count);
 }

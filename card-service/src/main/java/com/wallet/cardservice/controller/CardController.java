@@ -45,7 +45,7 @@ public class CardController {
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
         String email = jwtService.extractEmailFromJwt(jwt);
 
-        cardRequestsValidator.validateCardStatusRequest(number, userId);
+        // cardRequestsValidator.validateCardStatusRequest(number, userId);
 
         CardStatusAction action = cardService.convertStringToCardStatusAction(dto.statusAction());
         Card card = cardService.getCardByNumber(number);
@@ -86,7 +86,7 @@ public class CardController {
 
         Card card = cardService.getCardByNumber(number);
 
-        cardRequestsValidator.validateSetCardLimitRequest(number, userId, card, request.getPerTransactionLimit());
+        // cardRequestsValidator.validateSetCardLimitRequest(number, userId, card, request.getPerTransactionLimit());
 
         cardLimitService.saveLimit(request.getPerTransactionLimit(), card);
         return new ResponseEntity<>(new ApiResponse(true, "Limit set successfully"), HttpStatus.CREATED);
@@ -101,7 +101,7 @@ public class CardController {
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
-        cardRequestsValidator.validateUpdateCardLimitRequest(number, userId, request.getPerTransactionLimit());
+        // cardRequestsValidator.validateUpdateCardLimitRequest(number, userId, request.getPerTransactionLimit());
 
         Card card = cardService.getCardByNumber(number);
         cardLimitService.updateLimit(card, request.getPerTransactionLimit());
@@ -114,7 +114,7 @@ public class CardController {
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 
-        cardRequestsValidator.validateRemoveCardLimitRequest(number, userId);
+        // cardRequestsValidator.validateRemoveCardLimitRequest(number, userId);
 
         Card card = cardService.getCardByNumber(number);
         cardLimitService.removeLimit(card);

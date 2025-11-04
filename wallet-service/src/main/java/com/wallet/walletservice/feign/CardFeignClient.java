@@ -11,11 +11,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @FeignClient(name = "${digital-wallet-platform.services.card-service.uri}")
 public interface CardFeignClient {
+
+    @GetMapping("/api/v1/cards/{cardId}")
+    ResponseEntity<CardDetailsDto> getCardById(@PathVariable("cardId") Long cardId, @RequestParam("userId") UUID userId);
 
     @PostMapping("/api/v1/card")
     ResponseEntity<HttpStatus> saveCard(@RequestBody SaveCardDto saveCardDto);
@@ -29,9 +31,6 @@ public interface CardFeignClient {
             @RequestParam("sort") CardSortType sort,
             @RequestParam("order") CardSortOrder order
     );
-
-    @GetMapping("/api/v1/cards")
-    ResponseEntity<CardDetailsDto> getLinkedCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId);
 
     @DeleteMapping("/api/v1/card")
     ResponseEntity<HttpStatus> removeCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId);

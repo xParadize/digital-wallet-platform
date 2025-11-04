@@ -11,6 +11,6 @@ import java.util.UUID;
 @FeignClient(name = "${digital-wallet-platform.services.user-service.uri}")
 public interface UserFeignClient {
 
-    @GetMapping("/api/v1/user/{id}/holder")
-    ResponseEntity<HolderDto> getHolder(@PathVariable("id") UUID userId);
+    @GetMapping("/api/v1/users/{id}/holder")
+    ResponseEntity<HolderDto> getCardHolder(@PathVariable("id") UUID userId);
 }

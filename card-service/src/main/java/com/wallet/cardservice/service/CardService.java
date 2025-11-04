@@ -11,7 +11,6 @@ import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.CardNotFoundException;
 import com.wallet.cardservice.exception.CardStatusActionException;
-import com.wallet.cardservice.exception.InsufficientBalanceException;
 import com.wallet.cardservice.feign.TransactionFeignClient;
 import com.wallet.cardservice.feign.UserFeignClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
@@ -43,6 +42,8 @@ public class CardService {
     private final CardDataValidator cardDataValidator;
     private final LimitRepository limitRepository;
     private final TransactionFeignClient transactionFeignClient;
+
+    private final int RECENT_TRANSACTIONS_COUNT = 3;
 
     public List<CardPreviewDto> getLinkedCards(UUID userId, CardSortType sort, CardSortOrder order) {
         // в часто используемых картах можно сохранять карты в редис после оплаты и оттуда брать по порядку с ttl = 2 weeks
@@ -114,26 +115,32 @@ public class CardService {
         }
     }
 
-    public CardDetailsDto getLinkedCard(String number, UUID userId) {
-        Card card = cardRepository.getCardByNumber(number).orElseThrow(() -> new CardNotFoundException("Card not found"));
+    public CardDetailsDto getCardById(Long cardId, UUID userId) {
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new CardNotFoundException("Card not found"));
+
+        if (!isCardLinkedToUser(card.getId(), userId)) {
+            throw new CardAccessDeniedException("Access to the card is forbidden");
+        }
+
         return CardDetailsDto.builder()
                 .balance(card.getMoney())
                 .issuer(card.getCardIssuer())
                 .scheme(card.getCardScheme())
-                .cardType(CardType.DEBIT)
-                .holder(getHolder(userId))
+                .cardType(String.valueOf(CardType.DEBIT))
+                .holder(getCardHolder(userId))
                 .secretDetails(getCardSecretDetails(card))
-                .isFrozen(false)
-                .isBlocked(false)
-                .recentTransactions(List.of())
+                .frozen(card.isFrozen())
+                .blocked(card.isBlocked())
+                .recentTransactions(getRecentTransactions(card.getNumber()))
                 .limit(new CardLimitDto(
                         card.getLimit().getPerTransactionLimit(),
                         card.getLimit().isLimitEnabled()))
                 .build();
     }
 
-    private Holder getHolder(UUID userId) {
-        HolderDto dto = userFeignClient.getHolder(userId).getBody();
+    private Holder getCardHolder(UUID userId) {
+        HolderDto dto = userFeignClient.getCardHolder(userId).getBody();
         return holderMapper.toEntity(dto);
     }
 
@@ -143,6 +150,10 @@ public class CardService {
                 card.getExpirationDate(),
                 card.getCvv()
         );
+    }
+
+    private List<TransactionDto> getRecentTransactions(String cardNumber) {
+        return transactionFeignClient.getRecentTransactions(cardNumber, RECENT_TRANSACTIONS_COUNT);
     }
 
     @Transactional
@@ -179,8 +190,8 @@ public class CardService {
         return "*" + number.substring(number.length() - 4);
     }
 
-    public boolean isCardLinkedToUser(String cardNumber, UUID userId) {
-        return cardRepository.getCardByNumber(cardNumber)
+    public boolean isCardLinkedToUser(Long cardId, UUID userId) {
+        return cardRepository.findById(cardId)
                 .map(card -> card.getUserId().equals(userId))
                 .orElse(false);
     }
@@ -221,13 +232,13 @@ public class CardService {
         }
     }
 
-    @Transactional
-    public void removeCard(String number, UUID userId) {
-        if (!isCardLinkedToUser(number, userId)) {
-            throw new CardAccessDeniedException("You can't remove someone's card");
-        }
-        cardRepository.deleteCardByNumber(number);
-    }
+//    @Transactional
+//    public void removeCard(String number, UUID userId) {
+//        if (!isCardLinkedToUser(number, userId)) {
+//            throw new CardAccessDeniedException("You can't remove someone's card");
+//        }
+//        cardRepository.deleteCardByNumber(number);
+//    }
 
     public CardStatusDto getCardStatus(String number) {
         Card card = getCardByNumber(number);
@@ -238,20 +249,20 @@ public class CardService {
         );
     }
 
-    @Transactional
-    public void subtractMoney(UUID userId, BigDecimal amount, String cardNumber) {
-        Card card = getCardByNumber(cardNumber);
-
-        if (!isCardLinkedToUser(cardNumber, userId)) {
-            throw new CardAccessDeniedException("You can't subtract money from someone's card");
-        }
-
-        if (card.getMoney().compareTo(amount) < 0) {
-            throw new InsufficientBalanceException("Insufficient balance");
-        }
-        card.setMoney(card.getMoney().subtract(amount));
-        cardRepository.save(card);
-    }
+//    @Transactional
+//    public void subtractMoney(UUID userId, BigDecimal amount, String cardNumber) {
+//        Card card = getCardByNumber(cardNumber);
+//
+//        if (!isCardLinkedToUser(cardNumber, userId)) {
+//            throw new CardAccessDeniedException("You can't subtract money from someone's card");
+//        }
+//
+//        if (card.getMoney().compareTo(amount) < 0) {
+//            throw new InsufficientBalanceException("Insufficient balance");
+//        }
+//        card.setMoney(card.getMoney().subtract(amount));
+//        cardRepository.save(card);
+//    }
 
     private CardPreviewDto mapToCardPreviewDto(Card card) {
         return CardPreviewDto.builder()

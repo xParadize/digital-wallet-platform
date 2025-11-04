@@ -263,16 +263,16 @@ public class TransactionService {
         return transactionRepository.findAllByCardNumberAndConfirmedAtBetweenAndAmountGreaterThan(cardNumber, start, end, BigDecimal.ZERO, pageable);
     }
 
-    public List<TransactionDto> getLastTransactions(String cardNumber, int limit) {
-        List<Transaction> transactions = transactionRepository.findByCardNumberOrderByConfirmedAtDesc(cardNumber, Limit.of(limit));
+    public List<TransactionDto> getRecentTransactions(String cardNumber, int count) {
+        List<Transaction> transactions = transactionRepository.findByCardNumberOrderByConfirmedAtDesc(cardNumber, Limit.of(count));
         return transactions.stream()
                 .map(transactionMapper::toDto)
                 .collect(Collectors.toList());
     }
 
-    public Set<String> lastUsedCardNumbers(UUID userId) {
-        return transactionRepository.findAllByUserIdOrderByConfirmedAtDesc(userId).stream()
-                .map(Transaction::getCardNumber)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-    }
+//    public Set<String> lastUsedCardNumbers(UUID userId) {
+//        return transactionRepository.findAllByUserIdOrderByConfirmedAtDesc(userId).stream()
+//                .map(Transaction::getCardNumber)
+//                .collect(Collectors.toCollection(LinkedHashSet::new));
+//    }
 }

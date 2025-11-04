@@ -25,15 +25,20 @@ public class TransactionApiController {
         throw new IncorrectSearchPath();
     }
 
-    @GetMapping("/")
-    public List<TransactionDto> getTransactions(@RequestParam("cardNumber") String cardNumber, @RequestParam("limit") int limit) {
-        return transactionService.getLastTransactions(cardNumber, limit);
+    @GetMapping("/{cardId}/recent")
+    public List<TransactionDto> getRecentTransactions(@PathVariable("cardId") String cardNumber, @RequestParam("count") int count) {
+        return transactionService.getRecentTransactions(cardNumber, count);
     }
 
-    @GetMapping("/cards/last-used")
-    public Set<String> getLastUsedCardNumbers(@RequestParam("userId") UUID userId) {
-        return transactionService.lastUsedCardNumbers(userId);
-    }
+//    @GetMapping("/")
+//    public List<TransactionDto> getTransactions(@RequestParam("cardNumber") String cardNumber, @RequestParam("limit") int limit) {
+//        return transactionService.getRecentTransactions(cardNumber, limit);
+//    }
+
+//    @GetMapping("/cards/last-used")
+//    public Set<String> getLastUsedCardNumbers(@RequestParam("userId") UUID userId) {
+//        return transactionService.lastUsedCardNumbers(userId);
+//    }
 
     @PostMapping("/confirm")
     public ResponseEntity<HttpStatus> confirmOtpAndFinalizeTransaction(@RequestBody OtpConfirmRequest req) {

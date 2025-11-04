@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/user")
+@RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserApiController {
     private final UserService userService;
@@ -28,8 +28,8 @@ public class UserApiController {
     }
 
     @GetMapping("/{id}/holder")
-    public HolderDto getHolder(@PathVariable("id") UUID userId) {
-        return userService.getHolder(userId);
+    public HolderDto getCardHolder(@PathVariable("id") UUID userId) {
+        return userService.getCardHolder(userId);
     }
 }
 
