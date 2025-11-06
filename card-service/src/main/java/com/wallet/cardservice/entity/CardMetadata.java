@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
-import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.Objects;
 
 @Entity
@@ -14,8 +12,8 @@ import java.util.Objects;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "limit_")
-public class Limit {
+@Table(name = "card_metadata")
+public class CardMetadata {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -25,13 +23,10 @@ public class Limit {
     private Card card;
 
     @Column
-    private BigDecimal limitAmount;
+    private String issuer;
 
     @Column
-    private Instant setAt;
-
-    @Column
-    private Instant removedAt;
+    private String paymentScheme;
 
     @Override
     public final boolean equals(Object o) {
@@ -40,8 +35,8 @@ public class Limit {
         Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        Limit limit = (Limit) o;
-        return getId() != null && Objects.equals(getId(), limit.getId());
+        CardMetadata that = (CardMetadata) o;
+        return getId() != null && Objects.equals(getId(), that.getId());
     }
 
     @Override
@@ -54,8 +49,7 @@ public class Limit {
         return getClass().getSimpleName() + "(" +
                 "id = " + id + ", " +
                 "card = " + card + ", " +
-                "limitAmount = " + limitAmount + ", " +
-                "setAt = " + setAt + ", " +
-                "removedAt = " + removedAt + ")";
+                "issuer = " + issuer + ", " +
+                "paymentScheme = " + paymentScheme + ")";
     }
 }

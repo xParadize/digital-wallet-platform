@@ -2,7 +2,7 @@ package com.wallet.cardservice.controller;
 
 import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.entity.Card;
-import com.wallet.cardservice.enums.CardStatusAction;
+import com.wallet.cardservice.enums.CardStatus;
 import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.exception.FieldValidationException;
 import com.wallet.cardservice.exception.IncorrectSearchPath;
@@ -37,89 +37,89 @@ public class CardController {
         throw new IncorrectSearchPath();
     }
 
-    @PatchMapping("/{number}/status")
-    public ResponseEntity<ApiResponse> changeCardStatus(@PathVariable("number") String number,
-                                                        @RequestBody CardStatusActionDto dto,
-                                                        @RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = extractJwtFromHeader(authorizationHeader);
-        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-        String email = jwtService.extractEmailFromJwt(jwt);
+//    @PatchMapping("/{number}/status")
+//    public ResponseEntity<ApiResponse> changeCardStatus(@PathVariable("number") String number,
+//                                                        @RequestBody CardStatusActionDto dto,
+//                                                        @RequestHeader("Authorization") String authorizationHeader) {
+//        String jwt = extractJwtFromHeader(authorizationHeader);
+//        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+//        String email = jwtService.extractEmailFromJwt(jwt);
+//
+//        // cardRequestsValidator.validateCardStatusRequest(number, userId);
+//
+//        CardStatus action = cardService.convertStringToCardStatusAction(dto.statusAction());
+//        Card card = cardService.getCardByNumber(number);
 
-        // cardRequestsValidator.validateCardStatusRequest(number, userId);
+//        switch (action) {
+//            case FREEZE -> {
+//                if (card.isFrozen()) throw new CardStatusActionException("The card is already frozen");
+//                cardService.freeze(number, email, userId);
+//            }
+//            case UNFREEZE -> {
+//                if (!card.isFrozen()) throw new CardStatusActionException("The card isn't frozen");
+//                cardService.unfreeze(number, email, userId);
+//            }
+//            case BLOCK -> {
+//                if (card.isBlocked()) throw new CardStatusActionException("The card is already blocked");
+//                cardService.block(number, email, userId);
+//            }
+//            default -> throw new CardStatusActionException("Unsupported action: " + dto.statusAction());
+//        }
+//
+//        String actionResponseMessage = switch (action) {
+//            case FREEZE -> "The card was successfully frozen";
+//            case UNFREEZE -> "The card was successfully unfrozen";
+//            case BLOCK -> "The card was successfully blocked";
+//        };
+//
+//        return ResponseEntity.ok(new ApiResponse(true, actionResponseMessage));
+//    }
 
-        CardStatusAction action = cardService.convertStringToCardStatusAction(dto.statusAction());
-        Card card = cardService.getCardByNumber(number);
-
-        switch (action) {
-            case FREEZE -> {
-                if (card.isFrozen()) throw new CardStatusActionException("The card is already frozen");
-                cardService.freeze(number, email, userId);
-            }
-            case UNFREEZE -> {
-                if (!card.isFrozen()) throw new CardStatusActionException("The card isn't frozen");
-                cardService.unfreeze(number, email, userId);
-            }
-            case BLOCK -> {
-                if (card.isBlocked()) throw new CardStatusActionException("The card is already blocked");
-                cardService.block(number, email, userId);
-            }
-            default -> throw new CardStatusActionException("Unsupported action: " + dto.statusAction());
-        }
-
-        String actionResponseMessage = switch (action) {
-            case FREEZE -> "The card was successfully frozen";
-            case UNFREEZE -> "The card was successfully unfrozen";
-            case BLOCK -> "The card was successfully blocked";
-        };
-
-        return ResponseEntity.ok(new ApiResponse(true, actionResponseMessage));
-    }
-
-    @PostMapping("/{number}/limit")
-    public ResponseEntity<ApiResponse> setCardLimit(@PathVariable("number") String number,
-                                            @RequestBody @Valid SetCardLimitRequest request,
-                                            BindingResult bindingResult,
-                                            @RequestHeader("Authorization") String authorizationHeader) {
-        validateInput(bindingResult);
-        String jwt = extractJwtFromHeader(authorizationHeader);
-        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-
-        Card card = cardService.getCardByNumber(number);
-
-        // cardRequestsValidator.validateSetCardLimitRequest(number, userId, card, request.getPerTransactionLimit());
-
-        cardLimitService.saveLimit(request.getPerTransactionLimit(), card);
-        return new ResponseEntity<>(new ApiResponse(true, "Limit set successfully"), HttpStatus.CREATED);
-    }
-
-    @PatchMapping("/{number}/limit")
-    public ResponseEntity<ApiResponse> updateCardLimit(@PathVariable("number") String number,
-                                             @RequestBody @Valid UpdateCardLimitRequest request,
-                                             BindingResult bindingResult,
-                                             @RequestHeader("Authorization") String authorizationHeader) {
-        validateInput(bindingResult);
-        String jwt = extractJwtFromHeader(authorizationHeader);
-        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-
-        // cardRequestsValidator.validateUpdateCardLimitRequest(number, userId, request.getPerTransactionLimit());
-
-        Card card = cardService.getCardByNumber(number);
-        cardLimitService.updateLimit(card, request.getPerTransactionLimit());
-        return new ResponseEntity<>(new ApiResponse(true, "Limit updated successfully"), HttpStatus.OK);
-    }
-
-    @DeleteMapping("/{number}/limit")
-    public ResponseEntity<ApiResponse> removeCardLimit(@PathVariable("number") String number,
-                                               @RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = extractJwtFromHeader(authorizationHeader);
-        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-
-        // cardRequestsValidator.validateRemoveCardLimitRequest(number, userId);
-
-        Card card = cardService.getCardByNumber(number);
-        cardLimitService.removeLimit(card);
-        return new ResponseEntity<>(new ApiResponse(true, "Limit removed successfully"), HttpStatus.NO_CONTENT);
-    }
+//    @PostMapping("/{number}/limit")
+//    public ResponseEntity<ApiResponse> setCardLimit(@PathVariable("number") String number,
+//                                            @RequestBody @Valid SetCardLimitRequest request,
+//                                            BindingResult bindingResult,
+//                                            @RequestHeader("Authorization") String authorizationHeader) {
+//        validateInput(bindingResult);
+//        String jwt = extractJwtFromHeader(authorizationHeader);
+//        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+//
+//        Card card = cardService.getCardByNumber(number);
+//
+//        // cardRequestsValidator.validateSetCardLimitRequest(number, userId, card, request.getPerTransactionLimit());
+//
+//        cardLimitService.saveLimit(request.getPerTransactionLimit(), card);
+//        return new ResponseEntity<>(new ApiResponse(true, "Limit set successfully"), HttpStatus.CREATED);
+//    }
+//
+//    @PatchMapping("/{number}/limit")
+//    public ResponseEntity<ApiResponse> updateCardLimit(@PathVariable("number") String number,
+//                                             @RequestBody @Valid UpdateCardLimitRequest request,
+//                                             BindingResult bindingResult,
+//                                             @RequestHeader("Authorization") String authorizationHeader) {
+//        validateInput(bindingResult);
+//        String jwt = extractJwtFromHeader(authorizationHeader);
+//        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+//
+//        // cardRequestsValidator.validateUpdateCardLimitRequest(number, userId, request.getPerTransactionLimit());
+//
+//        Card card = cardService.getCardByNumber(number);
+//        cardLimitService.updateLimit(card, request.getPerTransactionLimit());
+//        return new ResponseEntity<>(new ApiResponse(true, "Limit updated successfully"), HttpStatus.OK);
+//    }
+//
+//    @DeleteMapping("/{number}/limit")
+//    public ResponseEntity<ApiResponse> removeCardLimit(@PathVariable("number") String number,
+//                                               @RequestHeader("Authorization") String authorizationHeader) {
+//        String jwt = extractJwtFromHeader(authorizationHeader);
+//        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+//
+//        // cardRequestsValidator.validateRemoveCardLimitRequest(number, userId);
+//
+//        Card card = cardService.getCardByNumber(number);
+//        cardLimitService.removeLimit(card);
+//        return new ResponseEntity<>(new ApiResponse(true, "Limit removed successfully"), HttpStatus.NO_CONTENT);
+//    }
 
     private String extractJwtFromHeader(String authorizationHeader) {
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {

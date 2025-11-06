@@ -1,6 +1,6 @@
 package com.wallet.walletservice.feign;
 
-import com.wallet.walletservice.dto.CardDetailsDto;
+import com.wallet.walletservice.dto.CardInfoDto;
 import com.wallet.walletservice.dto.CardPreviewDto;
 import com.wallet.walletservice.dto.SaveCardDto;
 import com.wallet.walletservice.enums.CardSortOrder;
@@ -17,7 +17,7 @@ import java.util.UUID;
 public interface CardFeignClient {
 
     @GetMapping("/api/v1/cards/{cardId}")
-    ResponseEntity<CardDetailsDto> getCardById(@PathVariable("cardId") Long cardId, @RequestParam("userId") UUID userId);
+    ResponseEntity<CardInfoDto> getCardById(@PathVariable("cardId") Long cardId, @RequestParam("userId") UUID userId);
 
     @PostMapping("/api/v1/card")
     ResponseEntity<HttpStatus> saveCard(@RequestBody SaveCardDto saveCardDto);

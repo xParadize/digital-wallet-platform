@@ -4,7 +4,6 @@ import com.wallet.walletservice.dto.*;
 import com.wallet.walletservice.enums.CardSortOrder;
 import com.wallet.walletservice.enums.CardSortType;
 import com.wallet.walletservice.feign.CardFeignClient;
-import com.wallet.walletservice.feign.TransactionFeignClient;
 import com.wallet.walletservice.mapper.CardDtoMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,7 +30,7 @@ public class WalletService {
         return cardFeignClient.getLinkedCards(userId, sort, order).getBody();
     }
 
-    public CardDetailsDto getCardById(Long cardId, UUID userId) {
+    public CardInfoDto getCardById(Long cardId, UUID userId) {
         return cardFeignClient.getCardById(cardId, userId).getBody();
     }
 
