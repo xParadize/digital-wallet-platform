@@ -1,5 +1,6 @@
 package com.wallet.cardservice.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wallet.cardservice.dto.ApiResponse;
 import com.wallet.cardservice.dto.CardInfoDto;
 import com.wallet.cardservice.exception.IncorrectSearchPath;

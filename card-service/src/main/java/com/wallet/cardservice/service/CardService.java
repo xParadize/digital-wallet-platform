@@ -8,7 +8,6 @@ import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.entity.CardDetails;
 import com.wallet.cardservice.entity.CardMetadata;
 import com.wallet.cardservice.entity.Limit;
-import com.wallet.cardservice.enums.CardSortOrder;
 import com.wallet.cardservice.enums.CardStatus;
 import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
@@ -19,15 +18,13 @@ import com.wallet.cardservice.feign.UserFeignClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.*;
 import com.wallet.cardservice.repository.CardRepository;
-import com.wallet.cardservice.repository.LimitRepository;
-import com.wallet.cardservice.util.CardDataValidator;
-import com.wallet.cardservice.util.CardInfoCollector;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -35,21 +32,19 @@ import java.util.UUID;
 public class CardService {
     private final CardRepository cardRepository;
     private final CardMapper cardMapper;
-    private final CardInfoCollector cardInfoCollector;
     private final CardKafkaProducer cardKafkaProducer;
     private final UserFeignClient userFeignClient;
     private final HolderMapper holderMapper;
-    private final CardDataValidator cardDataValidator;
-    private final LimitRepository limitRepository;
     private final TransactionFeignClient transactionFeignClient;
     private final CardMetadataService cardMetadataService;
     private final CardDetailsService cardDetailsService;
     private final CardLimitService cardLimitService;
     private final CardMetadataMapper cardMetadataMapper;
     private final CardDetailsMapper cardDetailsMapper;
+    private final CardCacheService cardCacheService;
+    private final CardLimitMapper cardLimitMapper;
 
     private final int RECENT_TRANSACTIONS_COUNT = 3;
-    private final CardLimitMapper cardLimitMapper;
 
 //    public List<CardPreviewDto> getLinkedCards(UUID userId, CardSortType sort, CardSortOrder order) {
 //        // в часто используемых картах можно сохранять карты в редис после оплаты и оттуда брать по порядку с ttl = 2 weeks
@@ -121,7 +116,30 @@ public class CardService {
 //        }
 //    }
 
+    // TODO: сделать каждому микру настройки пула БД
+    // НТ (проверить что нагрузка упала)
+    // Коммит
+    // TODO: сделать параллельную агрегацию (Сорокин)
+    @Transactional(readOnly = true)
     public CardInfoDto getCardById(Long cardId, UUID userId) {
+        CardInfoDto cached = getCardInfoFromCache(cardId, userId);
+        if (cached != null) {
+            return cached;
+        }
+        return loadAndCacheCardInfo(cardId, userId);
+    }
+
+    private CardInfoDto getCardInfoFromCache(Long cardId, UUID userId) {
+        CardInfoDto cachedCardInfo = cardCacheService.getCardById(cardId, userId);
+        if (cachedCardInfo == null) {
+            return null;
+        }
+        List<TransactionDto> recentTransactions = getRecentTransactions(cachedCardInfo.getSecretDetails().number());
+        cachedCardInfo.setRecentTransactions(recentTransactions);
+        return cachedCardInfo;
+    }
+
+    private CardInfoDto loadAndCacheCardInfo(Long cardId, UUID userId) {
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new CardNotFoundException("Card not found"));
 
@@ -133,14 +151,19 @@ public class CardService {
         CardMetadata cardMetadata = cardMetadataService.getMetadataByCard(card);
         Limit limit = cardLimitService.getLimitByCard(card);
 
-        return CardInfoDto.builder()
+        CardInfoDto cardInfoDto = CardInfoDto.builder()
                 .cardDto(cardMapper.toDto(card))
                 .cardMetadataDto(cardMetadataMapper.toDto(cardMetadata))
                 .holder(getCardHolder(userId))
                 .secretDetails(cardDetailsMapper.toDto(cardDetails))
-                .recentTransactions(getRecentTransactions(cardDetails.getNumber()))
+                .recentTransactions(Collections.emptyList())
                 .limit(cardLimitMapper.toDto(limit))
                 .build();
+
+        cardCacheService.saveCard(cardId, userId, cardInfoDto);
+
+        cardInfoDto.setRecentTransactions(getRecentTransactions(cardDetails.getNumber()));
+        return cardInfoDto;
     }
 
     private Holder getCardHolder(UUID userId) {

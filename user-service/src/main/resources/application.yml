@@ -29,6 +29,12 @@ spring:
     username: ${POSTGRES_USERNAME}
     url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_USER_SERVICE_DB}
     password: ${POSTGRES_PASSWORD}
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 30000
+      max-lifetime: 600000
   jpa:
     properties:
       hibernate:
