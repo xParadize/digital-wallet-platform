@@ -21,7 +21,7 @@ spring:
             - id: card-service
               uri: lb://${CARD_SERVICE_BASE_URL}
               predicates:
-                - Path=/cards/**
+                - Path=/api/v1/cards/**
             - id: user-service
               uri: lb://${USER_SERVICE_BASE_URL}
               predicates:

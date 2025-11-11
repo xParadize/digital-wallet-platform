@@ -34,7 +34,6 @@ public class WalletController {
         throw new IncorrectSearchPath();
     }
 
-    // TODO: при использовании через ГЕТ кладем в редис с ттл 2 недели
     @GetMapping("/cards/{cardId}")
     public ResponseEntity<CardInfoDto> getCard(@PathVariable("cardId") Long cardId,
                                                @RequestHeader("Authorization") String authorizationHeader) {

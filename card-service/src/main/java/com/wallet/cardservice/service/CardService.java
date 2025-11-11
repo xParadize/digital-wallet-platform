@@ -19,6 +19,7 @@ import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.*;
 import com.wallet.cardservice.repository.CardRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +27,11 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CardService {
@@ -116,10 +121,6 @@ public class CardService {
 //        }
 //    }
 
-    // TODO: сделать каждому микру настройки пула БД
-    // НТ (проверить что нагрузка упала)
-    // Коммит
-    // TODO: сделать параллельную агрегацию (Сорокин)
     @Transactional(readOnly = true)
     public CardInfoDto getCardById(Long cardId, UUID userId) {
         CardInfoDto cached = getCardInfoFromCache(cardId, userId);
