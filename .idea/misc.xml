@@ -19,6 +19,7 @@
     <option name="ignoredFiles">
       <set>
         <option value="$PROJECT_DIR$/offer-service/pom.xml" />
+        <option value="$PROJECT_DIR$/wallet-service/pom.xml" />
       </set>
     </option>
   </component>

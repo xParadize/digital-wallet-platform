@@ -17,7 +17,7 @@ spring:
             - id: auth-service
               uri: lb://${AUTH_SERVICE_BASE_URL}
               predicates:
-                - Path=/auth/**
+                - Path=/api/v1/auth/**
             - id: card-service
               uri: lb://${CARD_SERVICE_BASE_URL}
               predicates:
@@ -25,7 +25,7 @@ spring:
             - id: user-service
               uri: lb://${USER_SERVICE_BASE_URL}
               predicates:
-                - Path=/users/**
+                - Path=/api/v1/users/**
             - id: wallet-service
               uri: lb://${WALLET_SERVICE_BASE_URL}
               predicates:
@@ -33,7 +33,7 @@ spring:
             - id: transaction-service
               uri: lb://${TRANSACTION_SERVICE_BASE_URL}
               predicates:
-                - Path=/transactions/**
+                - Path=/api/v1/transactions/**
 
 eureka:
   client:
