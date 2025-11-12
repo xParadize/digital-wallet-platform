@@ -14,7 +14,9 @@ import java.util.UUID;
 public interface TransactionFeignClient {
 
     @GetMapping("/api/v1/transactions/cards/last-used")
-    Set<String> getLastUsedCardNumbers(@RequestParam("userId") UUID userId);
+    List<String> getLastUsedCardNumbers(@RequestParam("userId") UUID userId,
+                                        @RequestParam("offset") int offset,
+                                        @RequestParam("limit") int limit);
 
     @GetMapping("/api/v1/transactions/{cardNumber}/recent")
     List<TransactionDto> getRecentTransactions(@PathVariable("cardNumber") String cardNumber, @RequestParam("count") int count);

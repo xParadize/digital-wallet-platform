@@ -1,14 +1,18 @@
 package com.wallet.cardservice.controller;
 
-import com.wallet.cardservice.dto.ApiResponse;
-import com.wallet.cardservice.dto.CardInfoDto;
+import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.exception.IncorrectSearchPath;
+import com.wallet.cardservice.exception.InvalidAuthorizationException;
 import com.wallet.cardservice.service.CardService;
+import com.wallet.cardservice.service.JwtService;
+import com.wallet.cardservice.util.CardSortValidator;
+import com.wallet.cardservice.util.PageParamsValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -16,15 +20,46 @@ import java.util.UUID;
 @RequestMapping("/api/v1/cards")
 public class CardApiController {
     private final CardService cardService;
+    private final CardSortValidator cardSortValidator;
+    private final JwtService jwtService;
+    private final PageParamsValidator pageParamsValidator;
 
     @RequestMapping(value = "/**")
     public ResponseEntity<ApiResponse> handleNotFound() {
         throw new IncorrectSearchPath();
     }
 
-    @GetMapping("/{cardId}")
-    public ResponseEntity<CardInfoDto> getCardById(@PathVariable("cardId") Long cardId, @RequestParam("userId") UUID userId) {
+    @GetMapping("/{card_id}")
+    public ResponseEntity<CardInfoDto> getCardById(@PathVariable("card_id") Long cardId,
+                                                   @RequestParam("userId") UUID userId) {
         return new ResponseEntity<>(cardService.getCardById(cardId, userId), HttpStatus.OK);
+    }
+
+    @GetMapping("")
+    public ResponseEntity<List<CardPreviewDto>> getCards(@RequestParam(required = false) String sort,
+                                                         @RequestParam(required = false) String order,
+                                                         @RequestParam(required = false) Integer offset,
+                                                         @RequestParam(required = false) Integer limit,
+                                                         @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        CardSort cardSort = cardSortValidator.validateSort(sort, order);
+        PageParams pageParams = pageParamsValidator.validatePageOffsetAndLimit(offset, limit);
+        return new ResponseEntity<>(cardService.getCards(
+                userId,
+                cardSort.getType(),
+                cardSort.getOrder(),
+                pageParams.offset(),
+                pageParams.limit()), HttpStatus.OK
+        );
+    }
+
+    private String extractJwtFromHeader(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new InvalidAuthorizationException("Invalid authorization header");
+        }
+        return authorizationHeader.substring(7);
     }
 
 //    @PostMapping("/card")
@@ -51,13 +86,6 @@ public class CardApiController {
 //    public boolean isCardLinkedToUser(@RequestParam("cardNumber") String cardNumber,
 //                                             @RequestParam("userId") UUID userId) {
 //        return cardService.isCardLinkedToUser(cardNumber, userId);
-//    }
-
-//    @GetMapping("/cardsqq")
-//    public ResponseEntity<List<CardPreviewDto>> getLinkedCards(@RequestParam("userId") UUID userId,
-//                                                               @RequestParam("sort") CardSortType sort,
-//                                                               @RequestParam("order") CardSortOrder order) {
-//        return new ResponseEntity<>(cardService.getLinkedCards(userId, sort, order), HttpStatus.OK);
 //    }
 //
 //    @GetMapping("/card/{number}/status")

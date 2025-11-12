@@ -1,13 +1,12 @@
 package com.wallet.cardservice.service;
 
-import com.wallet.cardservice.dto.CardInfoDto;
-import com.wallet.cardservice.dto.Holder;
-import com.wallet.cardservice.dto.HolderDto;
-import com.wallet.cardservice.dto.TransactionDto;
+import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.entity.CardDetails;
 import com.wallet.cardservice.entity.CardMetadata;
 import com.wallet.cardservice.entity.Limit;
+import com.wallet.cardservice.enums.CardSortOrder;
+import com.wallet.cardservice.enums.CardSortType;
 import com.wallet.cardservice.enums.CardStatus;
 import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
@@ -26,10 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 
 @Slf4j
 @Service
@@ -50,6 +47,47 @@ public class CardService {
     private final CardLimitMapper cardLimitMapper;
 
     private final int RECENT_TRANSACTIONS_COUNT = 3;
+
+    @Transactional(readOnly = true)
+    public List<CardPreviewDto> getCards(UUID userId, CardSortType sort, CardSortOrder order, int offset, int limit) {
+        List<Card> cards = switch (sort) {
+            case RECENT -> findAllCardsByLastUse(userId, offset, limit);
+            case NAME -> null;
+            case BALANCE -> null;
+            case EXPIRATION -> null;
+            case LIMIT -> null;
+        };
+
+        return cards.stream()
+                .map(card -> getCardInfo(userId, card))
+                .map(cardInfoDto -> mapToCardPreviewDto(
+                        cardInfoDto.getCardDto(),
+                        cardInfoDto.getSecretDetails(),
+                        cardInfoDto.getCardMetadataDto()
+                ))
+                .toList();
+    }
+
+    private List<Card> findAllCardsByLastUse(UUID userId, int offset, int limit) {
+        List<String> lastUsedCardNumbers = transactionFeignClient.getLastUsedCardNumbers(userId, offset, limit);
+        if (lastUsedCardNumbers.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return lastUsedCardNumbers.stream()
+                .map(cardRepository::findByCardDetails_Number)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+    }
+
+    private CardPreviewDto mapToCardPreviewDto(CardDto cardDto, CardDetailsDto detailsDto, CardMetadataDto metadataDto) {
+        return CardPreviewDto.builder()
+                .number(detailsDto.number())
+                .issuer(metadataDto.issuer())
+                .scheme(metadataDto.paymentScheme())
+                .balance(cardDto.balance())
+                .build();
+    }
 
 //    public List<CardPreviewDto> getLinkedCards(UUID userId, CardSortType sort, CardSortOrder order) {
 //        // в часто используемых картах можно сохранять карты в редис после оплаты и оттуда брать по порядку с ttl = 2 weeks
@@ -102,12 +140,6 @@ public class CardService {
 //        }
 //    }
 
-//    private List<Card> findAllCardsByLastUse(UUID userId, CardSortOrder order) {
-//        Set<String> lastUsedCardNumbers = transactionFeignClient.getLastUsedCardNumbers(userId);
-//        return lastUsedCardNumbers.stream()
-//                .map(t -> cardRepository.getCardByNumber(t).orElseThrow(() -> new CardNotFoundException("Card not found")))
-//                .toList();
-//    }
 //
 //    private List<Card> findAllCardsByLimit(UUID userId, CardSortOrder order) {
 //        switch (order) {
@@ -148,11 +180,20 @@ public class CardService {
             throw new CardAccessDeniedException("Access to the card is forbidden");
         }
 
+        CardInfoDto cardInfoDto = getCardInfo(userId, card);
+
+        cardCacheService.saveCard(cardId, userId, cardInfoDto);
+
+        cardInfoDto.setRecentTransactions(getRecentTransactions(cardInfoDto.getSecretDetails().number()));
+        return cardInfoDto;
+    }
+
+    private CardInfoDto getCardInfo(UUID userId, Card card) {
         CardDetails cardDetails = cardDetailsService.getDetailsByCard(card);
         CardMetadata cardMetadata = cardMetadataService.getMetadataByCard(card);
         Limit limit = cardLimitService.getLimitByCard(card);
 
-        CardInfoDto cardInfoDto = CardInfoDto.builder()
+        return CardInfoDto.builder()
                 .cardDto(cardMapper.toDto(card))
                 .cardMetadataDto(cardMetadataMapper.toDto(cardMetadata))
                 .holder(getCardHolder(userId))
@@ -160,11 +201,6 @@ public class CardService {
                 .recentTransactions(Collections.emptyList())
                 .limit(cardLimitMapper.toDto(limit))
                 .build();
-
-        cardCacheService.saveCard(cardId, userId, cardInfoDto);
-
-        cardInfoDto.setRecentTransactions(getRecentTransactions(cardDetails.getNumber()));
-        return cardInfoDto;
     }
 
     private Holder getCardHolder(UUID userId) {
@@ -282,17 +318,5 @@ public class CardService {
 //        }
 //        card.setMoney(card.getMoney().subtract(amount));
 //        cardRepository.save(card);
-//    }
-
-//    private CardPreviewDto mapToCardPreviewDto(Card card) {
-//        return CardPreviewDto.builder()
-//                .maskedCardNumber(maskCardNumber(card.getNumber()))
-//                .issuer(card.getCardIssuer())
-//                .scheme(card.getCardScheme())
-//                .cardType(CardType.DEBIT)
-//                .isFrozen(card.isFrozen())
-//                .isBlocked(card.isBlocked())
-//                .balance(card.getMoney())
-//                .build();
 //    }
 }

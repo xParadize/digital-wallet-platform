@@ -1,9 +1,10 @@
 package com.wallet.cardservice.service;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
+import com.wallet.cardservice.exception.JwtExpiredException;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SecurityException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -22,20 +23,28 @@ public class JwtService {
     }
 
     public String extractEmailFromJwt(String jwt) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(jwt)
-                .getBody();
-        return claims.get("email", String.class);
+        try {
+            Claims claims = Jwts.parser()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(jwt)
+                    .getBody();
+            return claims.get("email", String.class);
+        } catch (JwtException e) {
+            throw new JwtExpiredException();
+        }
     }
 
     public String extractUserIdFromJwt(String jwt) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(jwt)
-                .getBody();
-        return claims.get("id", String.class);
+        try {
+            Claims claims = Jwts.parser()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(jwt)
+                    .getBody();
+            return claims.get("id", String.class);
+        } catch (JwtException e) {
+            throw new JwtExpiredException();
+        }
     }
 }

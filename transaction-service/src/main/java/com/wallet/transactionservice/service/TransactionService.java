@@ -270,9 +270,13 @@ public class TransactionService {
                 .collect(Collectors.toList());
     }
 
-//    public Set<String> lastUsedCardNumbers(UUID userId) {
-//        return transactionRepository.findAllByUserIdOrderByConfirmedAtDesc(userId).stream()
-//                .map(Transaction::getCardNumber)
-//                .collect(Collectors.toCollection(LinkedHashSet::new));
-//    }
+    // todo: проверить через не стрим апи
+    public List<String> lastUsedCardNumbers(UUID userId, int offset, int limit) {
+        Pageable pageable = PageRequest.of(offset / limit, limit);
+        return transactionRepository.findAllByUserIdOrderByConfirmedAtDesc(userId, pageable).stream()
+                .map(Transaction::getCardNumber)
+                .distinct()
+                .peek(System.out::println)
+                .toList();
+    }
 }
