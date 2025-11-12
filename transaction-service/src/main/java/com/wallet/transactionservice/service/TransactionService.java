@@ -270,7 +270,6 @@ public class TransactionService {
                 .collect(Collectors.toList());
     }
 
-    // todo: проверить через не стрим апи
     public List<String> lastUsedCardNumbers(UUID userId, int offset, int limit) {
         Pageable pageable = PageRequest.of(offset / limit, limit);
         return transactionRepository.findAllByUserIdOrderByConfirmedAtDesc(userId, pageable).stream()

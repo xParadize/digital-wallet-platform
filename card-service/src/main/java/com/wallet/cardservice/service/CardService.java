@@ -19,6 +19,8 @@ import com.wallet.cardservice.mapper.*;
 import com.wallet.cardservice.repository.CardRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,7 +54,7 @@ public class CardService {
     public List<CardPreviewDto> getCards(UUID userId, CardSortType sort, CardSortOrder order, int offset, int limit) {
         List<Card> cards = switch (sort) {
             case RECENT -> findAllCardsByLastUse(userId, offset, limit);
-            case NAME -> null;
+            case NAME -> findAllCardsByIssuerName(userId, order, offset, limit);
             case BALANCE -> null;
             case EXPIRATION -> null;
             case LIMIT -> null;
@@ -80,6 +82,19 @@ public class CardService {
                 .toList();
     }
 
+    private List<Card> findAllCardsByIssuerName(UUID userId, CardSortOrder order, int offset, int limit) {
+        Pageable pageable = PageRequest.of(offset / limit, limit);
+        switch (order) {
+            case DALPH -> {
+                return cardRepository.findAllByUserIdOrderByCardMetadata_IssuerDesc(userId, pageable);
+            } case AALPH -> {
+                return cardRepository.findAllByUserIdOrderByCardMetadata_IssuerAsc(userId, pageable);
+            } default -> {
+                return List.of();
+            }
+        }
+    }
+
     private CardPreviewDto mapToCardPreviewDto(CardDto cardDto, CardDetailsDto detailsDto, CardMetadataDto metadataDto) {
         return CardPreviewDto.builder()
                 .number(detailsDto.number())
@@ -89,20 +104,6 @@ public class CardService {
                 .build();
     }
 
-//    public List<CardPreviewDto> getLinkedCards(UUID userId, CardSortType sort, CardSortOrder order) {
-//        // в часто используемых картах можно сохранять карты в редис после оплаты и оттуда брать по порядку с ttl = 2 weeks
-//        List<Card> result = switch (sort) {
-//            case RECENT -> findAllCardsByLastUse(userId, order);
-//            case BALANCE -> findAllCardsByBalance(userId, order);
-//            case NAME -> findAllCardsByIssuerName(userId, order);
-//            case LIMIT -> findAllCardsByLimit(userId, order);
-//            case EXPIRATION -> findAllCardsByExpiration(userId, order);
-//        };
-//
-//        return result.stream()
-//                .map(this::mapToCardPreviewDto)
-//                .toList();
-//    }
 
 //    private List<Card> findAllCardsByBalance(UUID userId, CardSortOrder order) {
 //        switch (order) {
@@ -116,17 +117,6 @@ public class CardService {
 //        }
 //    }
 //
-//    private List<Card> findAllCardsByIssuerName(UUID userId, CardSortOrder order) {
-//        switch (order) {
-//            case DALPH -> {
-//                return cardRepository.findByUserIdOrderByCardIssuerDesc(userId);
-//            } case AALPH -> {
-//                return cardRepository.findByUserIdOrderByCardIssuerAsc(userId);
-//            } default -> {
-//                return List.of();
-//            }
-//        }
-//    }
 //
 //    private List<Card> findAllCardsByExpiration(UUID userId, CardSortOrder order) {
 //        switch (order) {
