@@ -35,21 +35,19 @@ public interface CardRepository extends JpaRepository<Card, Long> {
             nativeQuery = true)
     List<Card> findByUserIdOrderByExpirationDateLatest(@Param("userId") UUID userId, Pageable pageable);
 
-//    Optional<Card> getCardByNumber(String number);
-//    List<Card> findAllByUserId(UUID userId);
-//    @Query(value = "SELECT c.* FROM card_ c " +
-//            "JOIN limit_ l ON c.limit_id = l.id " +
-//            "WHERE c.user_id = :userId " +
-//            "ORDER BY l.per_transaction_limit DESC",
-//            nativeQuery = true)
-//    List<Card> findByUserIdOrderByLimitValueDesc(@Param("userId") UUID userId);
-//
-//    @Query(value = "SELECT c.* FROM card_ c " +
-//            "JOIN limit_ l ON c.limit_id = l.id " +
-//            "WHERE c.user_id = :userId " +
-//            "ORDER BY l.per_transaction_limit ASC",
-//        nativeQuery = true)
-//    List<Card> findByUserIdOrderByLimitValueAsc(@Param("userId") UUID userId);
+    @Query(value = "SELECT c.* FROM card_ c " +
+            "JOIN limit_ l ON c.id = l.card_id " +
+            "WHERE c.user_id = :userId " +
+            "ORDER BY l.limit_amount DESC",
+            nativeQuery = true)
+    List<Card> findByUserIdOrderByLimitValueDesc(@Param("userId") UUID userId, Pageable pageable);
+
+    @Query(value = "SELECT c.* FROM card_ c " +
+            "JOIN limit_ l ON c.id = l.card_id " +
+            "WHERE c.user_id = :userId " +
+            "ORDER BY l.limit_amount ASC",
+            nativeQuery = true)
+    List<Card> findByUserIdOrderByLimitValueAsc(@Param("userId") UUID userId, Pageable pageable);
 //
 //    void deleteCardByNumber(String number);
 }

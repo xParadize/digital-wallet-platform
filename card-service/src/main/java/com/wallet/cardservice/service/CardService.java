@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -47,6 +46,7 @@ public class CardService {
     private final CardDetailsMapper cardDetailsMapper;
     private final CardCacheService cardCacheService;
     private final CardLimitMapper cardLimitMapper;
+    private final CardSortManager cardSortManager;
 
     private final int RECENT_TRANSACTIONS_COUNT = 3;
 
@@ -54,11 +54,11 @@ public class CardService {
     public List<CardPreviewDto> getCards(UUID userId, CardSortType sort, CardSortOrder order, int offset, int limit) {
         Pageable pageable = PageRequest.of(offset / limit, limit);
         List<Card> cards = switch (sort) {
-            case RECENT -> findAllCardsByLastUse(userId, offset, limit);
-            case NAME -> findAllCardsByIssuerName(userId, order, pageable);
-            case BALANCE -> findAllCardsByBalance(userId, order, pageable);
-            case EXPIRATION -> findAllCardsByExpiration(userId, order, pageable);
-            case LIMIT -> null;
+            case RECENT -> cardSortManager.findAllCardsByLastUse(userId, offset, limit);
+            case NAME -> cardSortManager.findAllCardsByIssuerName(userId, order, pageable);
+            case BALANCE -> cardSortManager.findAllCardsByBalance(userId, order, pageable);
+            case EXPIRATION -> cardSortManager.findAllCardsByExpiration(userId, order, pageable);
+            case LIMIT -> cardSortManager.findAllCardsByLimit(userId, order, pageable);
         };
 
         return cards.stream()
@@ -71,54 +71,6 @@ public class CardService {
                 .toList();
     }
 
-    private List<Card> findAllCardsByLastUse(UUID userId, int offset, int limit) {
-        List<String> lastUsedCardNumbers = transactionFeignClient.getLastUsedCardNumbers(userId, offset, limit);
-        if (lastUsedCardNumbers.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return lastUsedCardNumbers.stream()
-                .map(cardRepository::findByCardDetails_Number)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .toList();
-    }
-
-    private List<Card> findAllCardsByIssuerName(UUID userId, CardSortOrder order, Pageable pageable) {
-        switch (order) {
-            case DALPH -> {
-                return cardRepository.findAllByUserIdOrderByCardMetadata_IssuerDesc(userId, pageable);
-            } case AALPH -> {
-                return cardRepository.findAllByUserIdOrderByCardMetadata_IssuerAsc(userId, pageable);
-            } default -> {
-                return List.of();
-            }
-        }
-    }
-
-    private List<Card> findAllCardsByBalance(UUID userId, CardSortOrder order, Pageable pageable) {
-        switch (order) {
-            case DESC -> {
-                return cardRepository.findAllByUserIdOrderByBalanceDesc(userId, pageable);
-            } case ASC -> {
-                return cardRepository.findAllByUserIdOrderByBalanceAsc(userId, pageable);
-            } default -> {
-                return List.of();
-            }
-        }
-    }
-
-    private List<Card> findAllCardsByExpiration(UUID userId, CardSortOrder order, Pageable pageable) {
-        switch (order) {
-            case EARLIEST -> {
-                return cardRepository.findByUserIdOrderByExpirationDateEarliest(userId, pageable);
-            } case LATEST -> {
-                return cardRepository.findByUserIdOrderByExpirationDateLatest(userId, pageable);
-            } default -> {
-                return List.of();
-            }
-        }
-    }
-
     private CardPreviewDto mapToCardPreviewDto(CardDto cardDto, CardDetailsDto detailsDto, CardMetadataDto metadataDto) {
         return CardPreviewDto.builder()
                 .number(detailsDto.number())
@@ -127,19 +79,6 @@ public class CardService {
                 .balance(cardDto.balance())
                 .build();
     }
-
-//
-//    private List<Card> findAllCardsByLimit(UUID userId, CardSortOrder order) {
-//        switch (order) {
-//            case DESC -> {
-//                return cardRepository.findByUserIdOrderByLimitValueDesc(userId);
-//            } case ASC -> {
-//                return cardRepository.findByUserIdOrderByLimitValueAsc(userId);
-//            } default -> {
-//                return List.of();
-//            }
-//        }
-//    }
 
     @Transactional(readOnly = true)
     public CardInfoDto getCardById(Long cardId, UUID userId) {
@@ -230,19 +169,11 @@ public class CardService {
         cardKafkaProducer.sendCardLinkedEvent(event);
     }
 
-    private String maskCardNumber(String number) {
-        return "*" + number.substring(number.length() - 4);
-    }
-
     public boolean isCardLinkedToUser(Long cardId, UUID userId) {
         return cardRepository.findById(cardId)
                 .map(card -> card.getUserId().equals(userId))
                 .orElse(false);
     }
-
-//    public Card getCardByNumber(String number) {
-//        return cardRepository.getCardByNumber(number).orElseThrow(() -> new CardNotFoundException("Card not found"));
-//    }
 
 //    @Transactional
 //    public void freeze(String number, String email, UUID userId) {
