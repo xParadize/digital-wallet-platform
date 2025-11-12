@@ -57,7 +57,7 @@ public class CardService {
             case RECENT -> findAllCardsByLastUse(userId, offset, limit);
             case NAME -> findAllCardsByIssuerName(userId, order, pageable);
             case BALANCE -> findAllCardsByBalance(userId, order, pageable);
-            case EXPIRATION -> null;
+            case EXPIRATION -> findAllCardsByExpiration(userId, order, pageable);
             case LIMIT -> null;
         };
 
@@ -107,6 +107,18 @@ public class CardService {
         }
     }
 
+    private List<Card> findAllCardsByExpiration(UUID userId, CardSortOrder order, Pageable pageable) {
+        switch (order) {
+            case EARLIEST -> {
+                return cardRepository.findByUserIdOrderByExpirationDateEarliest(userId, pageable);
+            } case LATEST -> {
+                return cardRepository.findByUserIdOrderByExpirationDateLatest(userId, pageable);
+            } default -> {
+                return List.of();
+            }
+        }
+    }
+
     private CardPreviewDto mapToCardPreviewDto(CardDto cardDto, CardDetailsDto detailsDto, CardMetadataDto metadataDto) {
         return CardPreviewDto.builder()
                 .number(detailsDto.number())
@@ -115,18 +127,6 @@ public class CardService {
                 .balance(cardDto.balance())
                 .build();
     }
-
-//    private List<Card> findAllCardsByExpiration(UUID userId, CardSortOrder order) {
-//        switch (order) {
-//            case EARLIEST -> {
-//                return cardRepository.findByUserIdOrderByExpirationDateEarliest(userId);
-//            } case LATEST -> {
-//                return cardRepository.findByUserIdOrderByExpirationDateLatest(userId);
-//            } default -> {
-//                return List.of();
-//            }
-//        }
-//    }
 
 //
 //    private List<Card> findAllCardsByLimit(UUID userId, CardSortOrder order) {
