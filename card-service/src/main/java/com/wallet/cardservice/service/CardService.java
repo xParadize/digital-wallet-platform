@@ -52,10 +52,11 @@ public class CardService {
 
     @Transactional(readOnly = true)
     public List<CardPreviewDto> getCards(UUID userId, CardSortType sort, CardSortOrder order, int offset, int limit) {
+        Pageable pageable = PageRequest.of(offset / limit, limit);
         List<Card> cards = switch (sort) {
             case RECENT -> findAllCardsByLastUse(userId, offset, limit);
-            case NAME -> findAllCardsByIssuerName(userId, order, offset, limit);
-            case BALANCE -> null;
+            case NAME -> findAllCardsByIssuerName(userId, order, pageable);
+            case BALANCE -> findAllCardsByBalance(userId, order, pageable);
             case EXPIRATION -> null;
             case LIMIT -> null;
         };
@@ -82,13 +83,24 @@ public class CardService {
                 .toList();
     }
 
-    private List<Card> findAllCardsByIssuerName(UUID userId, CardSortOrder order, int offset, int limit) {
-        Pageable pageable = PageRequest.of(offset / limit, limit);
+    private List<Card> findAllCardsByIssuerName(UUID userId, CardSortOrder order, Pageable pageable) {
         switch (order) {
             case DALPH -> {
                 return cardRepository.findAllByUserIdOrderByCardMetadata_IssuerDesc(userId, pageable);
             } case AALPH -> {
                 return cardRepository.findAllByUserIdOrderByCardMetadata_IssuerAsc(userId, pageable);
+            } default -> {
+                return List.of();
+            }
+        }
+    }
+
+    private List<Card> findAllCardsByBalance(UUID userId, CardSortOrder order, Pageable pageable) {
+        switch (order) {
+            case DESC -> {
+                return cardRepository.findAllByUserIdOrderByBalanceDesc(userId, pageable);
+            } case ASC -> {
+                return cardRepository.findAllByUserIdOrderByBalanceAsc(userId, pageable);
             } default -> {
                 return List.of();
             }
@@ -104,20 +116,6 @@ public class CardService {
                 .build();
     }
 
-
-//    private List<Card> findAllCardsByBalance(UUID userId, CardSortOrder order) {
-//        switch (order) {
-//            case DESC -> {
-//                return cardRepository.findByUserIdOrderByMoneyDesc(userId);
-//            } case ASC -> {
-//                return cardRepository.findByUserIdOrderByMoneyAsc(userId);
-//            } default -> {
-//                return List.of();
-//            }
-//        }
-//    }
-//
-//
 //    private List<Card> findAllCardsByExpiration(UUID userId, CardSortOrder order) {
 //        switch (order) {
 //            case EARLIEST -> {

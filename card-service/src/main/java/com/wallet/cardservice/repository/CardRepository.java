@@ -18,11 +18,11 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     Optional<Card> findByCardDetails_Number(String cardDetailsNumber);
     List<Card> findAllByUserIdOrderByCardMetadata_IssuerDesc(UUID userId, Pageable pageable);
     List<Card> findAllByUserIdOrderByCardMetadata_IssuerAsc(UUID userId, Pageable pageable);
+    List<Card> findAllByUserIdOrderByBalanceDesc(UUID userId, Pageable pageable);
+    List<Card> findAllByUserIdOrderByBalanceAsc(UUID userId, Pageable pageable);
 
 //    Optional<Card> getCardByNumber(String number);
 //    List<Card> findAllByUserId(UUID userId);
-//    List<Card> findByUserIdOrderByMoneyDesc(UUID userId);
-//    List<Card> findByUserIdOrderByMoneyAsc(UUID userId);
 
 //    @Query(value = "SELECT c.* FROM card_ c " +
 //            "JOIN limit_ l ON c.limit_id = l.id " +

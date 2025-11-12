@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @FeignClient(name = "${digital-wallet-platform.services.transaction-service.uri}")

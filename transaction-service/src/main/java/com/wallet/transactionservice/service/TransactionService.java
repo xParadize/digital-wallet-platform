@@ -263,6 +263,7 @@ public class TransactionService {
         return transactionRepository.findAllByCardNumberAndConfirmedAtBetweenAndAmountGreaterThan(cardNumber, start, end, BigDecimal.ZERO, pageable);
     }
 
+    @Transactional(readOnly = true)
     public List<TransactionDto> getRecentTransactions(String cardNumber, int count) {
         List<Transaction> transactions = transactionRepository.findByCardNumberOrderByConfirmedAtDesc(cardNumber, Limit.of(count));
         return transactions.stream()
@@ -270,12 +271,12 @@ public class TransactionService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<String> lastUsedCardNumbers(UUID userId, int offset, int limit) {
         Pageable pageable = PageRequest.of(offset / limit, limit);
         return transactionRepository.findAllByUserIdOrderByConfirmedAtDesc(userId, pageable).stream()
                 .map(Transaction::getCardNumber)
                 .distinct()
-                .peek(System.out::println)
                 .toList();
     }
 }

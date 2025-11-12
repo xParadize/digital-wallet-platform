@@ -6,6 +6,7 @@ import com.wallet.transactionservice.dto.TransactionDto;
 import com.wallet.transactionservice.exception.IncorrectSearchPath;
 import com.wallet.transactionservice.service.TransactionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
