@@ -31,7 +31,9 @@ public class CardApiController {
 
     @GetMapping("/{card_id}")
     public ResponseEntity<CardInfoDto> getCardById(@PathVariable("card_id") Long cardId,
-                                                   @RequestParam("userId") UUID userId) {
+                                                   @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
         return new ResponseEntity<>(cardService.getCardById(cardId, userId), HttpStatus.OK);
     }
 

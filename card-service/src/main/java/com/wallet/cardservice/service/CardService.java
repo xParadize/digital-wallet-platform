@@ -18,7 +18,6 @@ import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.*;
 import com.wallet.cardservice.repository.CardRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,7 +28,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CardService {
@@ -62,26 +60,16 @@ public class CardService {
         };
 
         return cards.stream()
-                .map(card -> getCardInfo(userId, card))
-                .map(cardInfoDto -> mapToCardPreviewDto(
-                        cardInfoDto.getCardDto(),
-                        cardInfoDto.getSecretDetails(),
-                        cardInfoDto.getCardMetadataDto()
-                ))
+                .map(this::getPreviewCardInfo)
                 .toList();
-    }
-
-    private CardPreviewDto mapToCardPreviewDto(CardDto cardDto, CardDetailsDto detailsDto, CardMetadataDto metadataDto) {
-        return CardPreviewDto.builder()
-                .number(detailsDto.number())
-                .issuer(metadataDto.issuer())
-                .scheme(metadataDto.paymentScheme())
-                .balance(cardDto.balance())
-                .build();
     }
 
     @Transactional(readOnly = true)
     public CardInfoDto getCardById(Long cardId, UUID userId) {
+        if (!isCardLinkedToUser(cardId, userId)) {
+            throw new CardAccessDeniedException("Access to the card is forbidden");
+        }
+
         CardInfoDto cached = getCardInfoFromCache(cardId, userId);
         if (cached != null) {
             return cached;
@@ -103,11 +91,7 @@ public class CardService {
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new CardNotFoundException("Card not found"));
 
-        if (!isCardLinkedToUser(card.getId(), userId)) {
-            throw new CardAccessDeniedException("Access to the card is forbidden");
-        }
-
-        CardInfoDto cardInfoDto = getCardInfo(userId, card);
+        CardInfoDto cardInfoDto = getDetailedCardInfo(userId, card);
 
         cardCacheService.saveCard(cardId, userId, cardInfoDto);
 
@@ -115,7 +99,7 @@ public class CardService {
         return cardInfoDto;
     }
 
-    private CardInfoDto getCardInfo(UUID userId, Card card) {
+    private CardInfoDto getDetailedCardInfo(UUID userId, Card card) {
         CardDetails cardDetails = cardDetailsService.getDetailsByCard(card);
         CardMetadata cardMetadata = cardMetadataService.getMetadataByCard(card);
         Limit limit = cardLimitService.getLimitByCard(card);
@@ -137,6 +121,18 @@ public class CardService {
 
     private List<TransactionDto> getRecentTransactions(String cardNumber) {
         return transactionFeignClient.getRecentTransactions(cardNumber, RECENT_TRANSACTIONS_COUNT);
+    }
+
+    private CardPreviewDto getPreviewCardInfo(Card card) {
+        CardDetails cardDetails = cardDetailsService.getDetailsByCard(card);
+        CardMetadata cardMetadata = cardMetadataService.getMetadataByCard(card);
+
+        return CardPreviewDto.builder()
+                .number(cardDetails.getNumber())
+                .issuer(cardMetadata.getIssuer())
+                .scheme(cardMetadata.getPaymentScheme())
+                .balance(card.getBalance())
+                .build();
     }
 
 //    @Transactional
@@ -169,6 +165,7 @@ public class CardService {
         cardKafkaProducer.sendCardLinkedEvent(event);
     }
 
+    @Transactional(readOnly = true)
     public boolean isCardLinkedToUser(Long cardId, UUID userId) {
         return cardRepository.findById(cardId)
                 .map(card -> card.getUserId().equals(userId))
@@ -199,13 +196,13 @@ public class CardService {
 //        cardKafkaProducer.sendCardBlockedEvent(maskCardNumber(number), email, userId);
 //    }
 
-    public CardStatus convertStringToCardStatusAction(String inputString) {
-        try {
-            return CardStatus.valueOf(inputString.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new CardStatusActionException("Invalid card action: " + inputString);
-        }
-    }
+//    public CardStatus convertStringToCardStatusAction(String inputString) {
+//        try {
+//            return CardStatus.valueOf(inputString.toUpperCase());
+//        } catch (IllegalArgumentException e) {
+//            throw new CardStatusActionException("Invalid card action: " + inputString);
+//        }
+//    }
 
 //    @Transactional
 //    public void removeCard(String number, UUID userId) {
