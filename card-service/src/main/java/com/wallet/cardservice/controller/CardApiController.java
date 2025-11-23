@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 @RestController
 @RequiredArgsConstructor
@@ -42,7 +43,7 @@ public class CardApiController {
                                                          @RequestParam(required = false) String order,
                                                          @RequestParam(required = false) Integer offset,
                                                          @RequestParam(required = false) Integer limit,
-                                                         @RequestHeader("Authorization") String authorizationHeader) {
+                                                         @RequestHeader("Authorization") String authorizationHeader) throws ExecutionException, InterruptedException {
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
 

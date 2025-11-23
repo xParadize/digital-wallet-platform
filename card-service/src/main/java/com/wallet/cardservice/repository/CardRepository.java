@@ -3,6 +3,7 @@ package com.wallet.cardservice.repository;
 import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.entity.CardMetadata;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,38 +16,52 @@ import java.util.UUID;
 
 @Repository
 public interface CardRepository extends JpaRepository<Card, Long> {
-    Optional<Card> findByCardDetails_Number(String cardDetailsNumber);
+
+    @EntityGraph(attributePaths = {"cardMetadata", "cardDetails", "limit"})
+    List<Card> findByCardDetails_NumberIn(List<String> numbers);
+
+    @EntityGraph(attributePaths = {"cardMetadata", "cardDetails", "limit"})
     List<Card> findAllByUserIdOrderByCardMetadata_IssuerDesc(UUID userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"cardMetadata", "cardDetails", "limit"})
     List<Card> findAllByUserIdOrderByCardMetadata_IssuerAsc(UUID userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"cardMetadata", "cardDetails", "limit"})
     List<Card> findAllByUserIdOrderByBalanceDesc(UUID userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"cardMetadata", "cardDetails", "limit"})
     List<Card> findAllByUserIdOrderByBalanceAsc(UUID userId, Pageable pageable);
 
-    @Query(value = "SELECT c.* FROM card_ c " +
-            "JOIN card_details cd ON cd.card_id = c.id " +
-            "WHERE c.user_id = :userId " +
-            "ORDER BY (TO_DATE(cd.expiration_date || '01', 'MM/YY/DD') + INTERVAL '1 month - 1 day') ASC",
-            nativeQuery = true)
+    @Query("SELECT c FROM Card c " +
+            "JOIN FETCH c.cardDetails cd " +
+            "JOIN FETCH c.cardMetadata cm " +
+            "JOIN FETCH c.limit " +
+            "WHERE c.userId = :userId " +
+            "ORDER BY FUNCTION('TO_DATE', CONCAT(cd.expirationDate, '01'), 'MM/YY/DD') ASC")
     List<Card> findByUserIdOrderByExpirationDateEarliest(@Param("userId") UUID userId, Pageable pageable);
 
-    @Query(value = "SELECT c.* FROM card_ c " +
-            "JOIN card_details cd ON cd.card_id = c.id " +
-            "WHERE c.user_id = :userId " +
-            "ORDER BY (TO_DATE(cd.expiration_date || '01', 'MM/YY/DD') + INTERVAL '1 month - 1 day') DESC",
-            nativeQuery = true)
+    @Query("SELECT c FROM Card c " +
+            "JOIN FETCH c.cardDetails cd " +
+            "JOIN FETCH c.cardMetadata cm " +
+            "JOIN FETCH c.limit " +
+            "WHERE c.userId = :userId " +
+            "ORDER BY FUNCTION('TO_DATE', CONCAT(cd.expirationDate, '01'), 'MM/YY/DD') DESC")
     List<Card> findByUserIdOrderByExpirationDateLatest(@Param("userId") UUID userId, Pageable pageable);
 
-    @Query(value = "SELECT c.* FROM card_ c " +
-            "JOIN limit_ l ON c.id = l.card_id " +
-            "WHERE c.user_id = :userId " +
-            "ORDER BY l.limit_amount DESC",
-            nativeQuery = true)
+    @Query("SELECT c FROM Card c " +
+            "JOIN FETCH c.cardDetails " +
+            "JOIN FETCH c.cardMetadata " +
+            "JOIN FETCH c.limit l " +
+            "WHERE c.userId = :userId " +
+            "ORDER BY l.limitAmount DESC")
     List<Card> findByUserIdOrderByLimitValueDesc(@Param("userId") UUID userId, Pageable pageable);
 
-    @Query(value = "SELECT c.* FROM card_ c " +
-            "JOIN limit_ l ON c.id = l.card_id " +
-            "WHERE c.user_id = :userId " +
-            "ORDER BY l.limit_amount ASC",
-            nativeQuery = true)
+    @Query("SELECT c FROM Card c " +
+            "JOIN FETCH c.cardDetails " +
+            "JOIN FETCH c.cardMetadata " +
+            "JOIN FETCH c.limit l " +
+            "WHERE c.userId = :userId " +
+            "ORDER BY l.limitAmount ASC")
     List<Card> findByUserIdOrderByLimitValueAsc(@Param("userId") UUID userId, Pageable pageable);
 //
 //    void deleteCardByNumber(String number);

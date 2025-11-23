@@ -6,13 +6,15 @@ import com.wallet.cardservice.feign.TransactionFeignClient;
 import com.wallet.cardservice.repository.CardRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Service
 @RequiredArgsConstructor
@@ -21,16 +23,19 @@ public class CardSortManager {
     private final TransactionFeignClient transactionFeignClient;
 
     @Transactional(readOnly = true)
-    public List<Card> findAllCardsByLastUse(UUID userId, int offset, int limit) {
-        List<String> lastUsedCardNumbers = transactionFeignClient.getLastUsedCardNumbers(userId, offset, limit);
+    public List<Card> findAllCardsByLastUse(UUID userId, int offset, int limit) throws ExecutionException, InterruptedException {
+        List<String> lastUsedCardNumbers = getLastUsedCardNumbersAsync(userId, offset, limit).get();
         if (lastUsedCardNumbers.isEmpty()) {
             return Collections.emptyList();
         }
-        return lastUsedCardNumbers.stream()
-                .map(cardRepository::findByCardDetails_Number)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .toList();
+        return cardRepository.findByCardDetails_NumberIn(lastUsedCardNumbers);
+    }
+
+    @Async
+    public CompletableFuture<List<String>> getLastUsedCardNumbersAsync(UUID userId, int offset, int limit) {
+        return CompletableFuture.completedFuture(
+                transactionFeignClient.getLastUsedCardNumbers(userId, offset, limit)
+        );
     }
 
     @Transactional(readOnly = true)

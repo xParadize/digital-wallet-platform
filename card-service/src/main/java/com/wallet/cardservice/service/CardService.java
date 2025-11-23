@@ -7,11 +7,9 @@ import com.wallet.cardservice.entity.CardMetadata;
 import com.wallet.cardservice.entity.Limit;
 import com.wallet.cardservice.enums.CardSortOrder;
 import com.wallet.cardservice.enums.CardSortType;
-import com.wallet.cardservice.enums.CardStatus;
 import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.CardNotFoundException;
-import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.feign.TransactionFeignClient;
 import com.wallet.cardservice.feign.UserFeignClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
@@ -27,6 +25,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 @Service
 @RequiredArgsConstructor
@@ -37,8 +36,6 @@ public class CardService {
     private final UserFeignClient userFeignClient;
     private final HolderMapper holderMapper;
     private final TransactionFeignClient transactionFeignClient;
-    private final CardMetadataService cardMetadataService;
-    private final CardDetailsService cardDetailsService;
     private final CardLimitService cardLimitService;
     private final CardMetadataMapper cardMetadataMapper;
     private final CardDetailsMapper cardDetailsMapper;
@@ -49,7 +46,7 @@ public class CardService {
     private final int RECENT_TRANSACTIONS_COUNT = 3;
 
     @Transactional(readOnly = true)
-    public List<CardPreviewDto> getCards(UUID userId, CardSortType sort, CardSortOrder order, int offset, int limit) {
+    public List<CardPreviewDto> getCards(UUID userId, CardSortType sort, CardSortOrder order, int offset, int limit) throws ExecutionException, InterruptedException {
         Pageable pageable = PageRequest.of(offset / limit, limit);
         List<Card> cards = switch (sort) {
             case RECENT -> cardSortManager.findAllCardsByLastUse(userId, offset, limit);
@@ -100,8 +97,8 @@ public class CardService {
     }
 
     private CardInfoDto getDetailedCardInfo(UUID userId, Card card) {
-        CardDetails cardDetails = cardDetailsService.getDetailsByCard(card);
-        CardMetadata cardMetadata = cardMetadataService.getMetadataByCard(card);
+        CardDetails cardDetails = card.getCardDetails();
+        CardMetadata cardMetadata = card.getCardMetadata();
         Limit limit = cardLimitService.getLimitByCard(card);
 
         return CardInfoDto.builder()
@@ -124,8 +121,8 @@ public class CardService {
     }
 
     private CardPreviewDto getPreviewCardInfo(Card card) {
-        CardDetails cardDetails = cardDetailsService.getDetailsByCard(card);
-        CardMetadata cardMetadata = cardMetadataService.getMetadataByCard(card);
+        CardDetails cardDetails = card.getCardDetails();
+        CardMetadata cardMetadata = card.getCardMetadata();
 
         return CardPreviewDto.builder()
                 .number(cardDetails.getNumber())
