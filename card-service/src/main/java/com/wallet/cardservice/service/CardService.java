@@ -7,6 +7,7 @@ import com.wallet.cardservice.entity.CardMetadata;
 import com.wallet.cardservice.entity.Limit;
 import com.wallet.cardservice.enums.CardSortOrder;
 import com.wallet.cardservice.enums.CardSortType;
+import com.wallet.cardservice.enums.CardStatus;
 import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.CardNotFoundException;
@@ -15,6 +16,8 @@ import com.wallet.cardservice.feign.UserFeignClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.*;
 import com.wallet.cardservice.repository.CardRepository;
+import com.wallet.cardservice.util.CardInfoCollector;
+import com.wallet.cardservice.util.CardSecurityProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -42,6 +45,7 @@ public class CardService {
     private final CardCacheService cardCacheService;
     private final CardLimitMapper cardLimitMapper;
     private final CardSortManager cardSortManager;
+    private final CardInfoCollector cardInfoCollector;
 
     private final int RECENT_TRANSACTIONS_COUNT = 3;
 
@@ -132,33 +136,56 @@ public class CardService {
                 .build();
     }
 
-//    @Transactional
-//    public void saveCard(SaveCardDto saveCardDto) {
-//        Card card = cardMapper.toEntity(saveCardDto);
-//        enrichCardWithMeta(card);
-//
-//        Limit defaultLimit = Limit.builder()
-//                .perTransactionLimit(new BigDecimal("1000000"))
-//                .limitEnabled(true)
-//                .build();
-//
-//        Limit savedLimit = limitRepository.save(defaultLimit);
-//        card.setLimit(savedLimit);
-//
-//        Card savedCard = cardRepository.save(card);
-//        savedLimit.setCard(savedCard);
-//
-//        sendCardLinkedEvent(saveCardDto.getUserId(), saveCardDto.getEmail(), maskCardNumber(card.getNumber()), card.getCardIssuer(), card.getCardScheme(), Instant.now());
-//    }
-//
-//    private void enrichCardWithMeta(Card card) {
-//        CardMeta meta = cardInfoCollector.getCardMeta(card.getNumber());
-//        card.setCardIssuer(meta.issuer());
-//        card.setCardScheme(meta.scheme());
-//    }
+    @Transactional
+    public void saveCard(SaveCardDto saveCardDto, String email, UUID userId) {
+        Card card = buildCardEntity(saveCardDto, userId);
+        cardRepository.save(card);
+        sendCardLinkedEvent(card, email);
+    }
 
-    private void sendCardLinkedEvent(UUID userId, String email, String maskedNumber, String issuer, String scheme, Instant linkedAt) {
-        CardLinkedEvent event = new CardLinkedEvent(userId, email, maskedNumber, issuer, scheme, linkedAt);
+    private Card buildCardEntity(SaveCardDto dto, UUID userId) {
+        Card card = cardMapper.toEntity(dto);
+        card.setUserId(userId);
+        card.setStatus(CardStatus.ACTIVE);
+
+        linkCardDetails(card);
+        linkCardMetadata(card);
+        linkCardLimit(card);
+
+        return card;
+    }
+
+    private void linkCardDetails(Card card) {
+        if (card.getCardDetails() != null) {
+            card.getCardDetails().setCard(card);
+        }
+    }
+
+    private void linkCardMetadata(Card card) {
+        CardMeta meta = cardInfoCollector.getCardMeta(card.getCardDetails().getNumber());
+        CardMetadata metadata = CardMetadata.builder()
+                .card(card)
+                .issuer(meta.issuer())
+                .paymentScheme(meta.scheme())
+                .build();
+        card.setCardMetadata(metadata);
+    }
+
+    private void linkCardLimit(Card card) {
+        Limit limit = cardLimitService.createDefaultLimit();
+        limit.setCard(card);
+        card.setLimit(limit);
+    }
+
+    private void sendCardLinkedEvent(Card card, String email) {
+        CardLinkedEvent event = new CardLinkedEvent(
+                card.getUserId(),
+                email,
+                CardSecurityProvider.maskCardNumber(card.getCardDetails().getNumber()),
+                card.getCardMetadata().getIssuer(),
+                card.getCardMetadata().getPaymentScheme(),
+                Instant.now()
+        );
         cardKafkaProducer.sendCardLinkedEvent(event);
     }
 

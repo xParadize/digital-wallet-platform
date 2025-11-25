@@ -58,18 +58,23 @@ public class CardApiController {
         );
     }
 
+    @PostMapping("")
+    public ResponseEntity<HttpStatus> saveCard(@RequestBody SaveCardDto saveCardDto,
+                                               @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+        String email = jwtService.extractEmailFromJwt(jwt);
+
+        cardService.saveCard(saveCardDto, email, userId);
+        return ResponseEntity.ok(HttpStatus.CREATED);
+    }
+
     private String extractJwtFromHeader(String authorizationHeader) {
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
             throw new InvalidAuthorizationException("Invalid authorization header");
         }
         return authorizationHeader.substring(7);
     }
-
-//    @PostMapping("/card")
-//    public ResponseEntity<HttpStatus> saveCard(@RequestBody SaveCardDto saveCardDto) {
-//        cardService.saveCard(saveCardDto);
-//        return ResponseEntity.ok(HttpStatus.OK);
-//    }
 
 //    @DeleteMapping("/card")
 //    public ResponseEntity<HttpStatus> removeCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId) {

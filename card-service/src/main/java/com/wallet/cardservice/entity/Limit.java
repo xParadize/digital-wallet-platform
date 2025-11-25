@@ -33,6 +33,13 @@ public class Limit {
     @Column
     private Instant removedAt;
 
+    @PrePersist
+    private void initSetAt() {
+        if (setAt == null) {
+            setAt = Instant.now();
+        }
+    }
+
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;

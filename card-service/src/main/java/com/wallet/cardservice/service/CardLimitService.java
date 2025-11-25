@@ -1,11 +1,8 @@
 package com.wallet.cardservice.service;
 
-import com.wallet.cardservice.dto.LimitDto;
 import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.entity.Limit;
-import com.wallet.cardservice.exception.CardLimitException;
 import com.wallet.cardservice.exception.CardLimitNotFoundException;
-import com.wallet.cardservice.repository.CardRepository;
 import com.wallet.cardservice.repository.LimitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -21,9 +17,7 @@ public class CardLimitService {
 
     @Value("${payment.limits.per-transaction-amount}")
     private BigDecimal defaultPerTransactionLimit;
-
     private final LimitRepository limitRepository;
-    private final CardRepository cardRepository;
 
     @Transactional(readOnly = true)
     public Limit getLimitByCard(Card card) {
@@ -31,11 +25,15 @@ public class CardLimitService {
                 .orElseThrow(CardLimitNotFoundException::new);
     }
 
+    @Transactional(readOnly = true)
+    public Limit createDefaultLimit() {
+        return Limit.builder()
+                .limitAmount(defaultPerTransactionLimit)
+                .build();
+    }
+
 //    @Transactional
-//    public void saveLimit(BigDecimal limitAmount, Card card) {
-//        Limit limit = new Limit();
-//        limit.setPerTransactionLimit(limitAmount);
-//        limit.setLimitEnabled(true);
+//    public void saveLimit(Limit limit, Card card) {
 //        card.setLimit(limit);
 //        limitRepository.save(limit);
 //    }

@@ -1,6 +1,6 @@
 package com.wallet.cardservice.dto;
 
-public record CardInfoResponse(
+public record CardMetaResponse(
     String Status,
     String Scheme,
     String Type,
