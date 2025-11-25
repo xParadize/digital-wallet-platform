@@ -2,8 +2,9 @@ package com.wallet.notificationservice.event;
 
 import java.time.Instant;
 
-public record CardFrozenEvent(
+public record CardStatusChangedEvent(
         String email,
         String cardNumber,
-        Instant frozenAt) {
+        String status,
+        Instant changedAt) {
 }

@@ -8,9 +8,12 @@ import com.wallet.cardservice.entity.Limit;
 import com.wallet.cardservice.enums.CardSortOrder;
 import com.wallet.cardservice.enums.CardSortType;
 import com.wallet.cardservice.enums.CardStatus;
+import com.wallet.cardservice.enums.CardStatusAction;
 import com.wallet.cardservice.event.CardLinkedEvent;
+import com.wallet.cardservice.event.CardStatusChangedEvent;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.CardNotFoundException;
+import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.feign.TransactionFeignClient;
 import com.wallet.cardservice.feign.UserFeignClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
@@ -196,37 +199,41 @@ public class CardService {
                 .orElse(false);
     }
 
-//    @Transactional
-//    public void freeze(String number, String email, UUID userId) {
-//        Card card = getCardByNumber(number);
-//        card.setFrozen(true);
-//        cardRepository.save(card);
-//        cardKafkaProducer.sendCardFrozenEvent(maskCardNumber(number), email, userId);
-//    }
-//
-//    @Transactional
-//    public void unfreeze(String number, String email, UUID userId) {
-//        Card card = getCardByNumber(number);
-//        card.setFrozen(false);
-//        cardRepository.save(card);
-//        cardKafkaProducer.sendCardUnfrozenEvent(maskCardNumber(number), email, userId);
-//    }
-//
-//    @Transactional
-//    public void block(String number, String email, UUID userId) {
-//        Card card = getCardByNumber(number);
-//        card.setBlocked(true);
-//        cardRepository.save(card);
-//        cardKafkaProducer.sendCardBlockedEvent(maskCardNumber(number), email, userId);
-//    }
+    @Transactional
+    public void updateCardStatus(CardStatusAction action, Long cardId, UUID userId, String email) {
+        if (!isCardLinkedToUser(cardId, userId)) {
+            throw new CardAccessDeniedException("You can't update someone's card");
+        }
 
-//    public CardStatus convertStringToCardStatusAction(String inputString) {
-//        try {
-//            return CardStatus.valueOf(inputString.toUpperCase());
-//        } catch (IllegalArgumentException e) {
-//            throw new CardStatusActionException("Invalid card action: " + inputString);
-//        }
-//    }
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new CardNotFoundException("Card not found"));
+
+        switch (action) {
+            case FREEZE -> {
+                if (card.getStatus().equals(CardStatus.FROZEN)) throw new CardStatusActionException("The card is already frozen");
+                card.setStatus(CardStatus.FROZEN);
+            }
+            case UNFREEZE -> {
+                if (!card.getStatus().equals(CardStatus.FROZEN)) throw new CardStatusActionException("The card isn't frozen");
+                card.setStatus(CardStatus.ACTIVE);
+            }
+            case BLOCK -> {
+                if (card.getStatus().equals(CardStatus.BLOCKED)) throw new CardStatusActionException("The card is already blocked");
+                card.setStatus(CardStatus.BLOCKED);
+            }
+            default -> throw new CardStatusActionException("Unsupported action: " + action);
+        }
+
+        cardRepository.save(card);
+        cardKafkaProducer.sendCardStatusChangedEvent(new CardStatusChangedEvent(
+                        email,
+                        CardSecurityProvider.maskCardNumber(card.getCardDetails().getNumber()),
+                        card.getStatus().toString(),
+                        Instant.now()
+                ),
+                userId
+        );
+    }
 
 //    @Transactional
 //    public void removeCard(String number, UUID userId) {

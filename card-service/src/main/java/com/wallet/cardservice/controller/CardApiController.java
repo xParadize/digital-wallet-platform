@@ -1,10 +1,12 @@
 package com.wallet.cardservice.controller;
 
 import com.wallet.cardservice.dto.*;
+import com.wallet.cardservice.enums.CardStatusAction;
 import com.wallet.cardservice.exception.IncorrectSearchPath;
 import com.wallet.cardservice.exception.InvalidAuthorizationException;
 import com.wallet.cardservice.service.CardService;
 import com.wallet.cardservice.service.JwtService;
+import com.wallet.cardservice.util.CardRequestsValidator;
 import com.wallet.cardservice.util.CardSortValidator;
 import com.wallet.cardservice.util.PageParamsValidator;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class CardApiController {
     private final CardSortValidator cardSortValidator;
     private final JwtService jwtService;
     private final PageParamsValidator pageParamsValidator;
+    private final CardRequestsValidator cardRequestsValidator;
 
     @RequestMapping(value = "/**")
     public ResponseEntity<ApiResponse> handleNotFound() {
@@ -67,6 +70,23 @@ public class CardApiController {
 
         cardService.saveCard(saveCardDto, email, userId);
         return ResponseEntity.ok(HttpStatus.CREATED);
+    }
+
+    @PatchMapping("/{card_id}")
+    public ResponseEntity<HttpStatus> updateCard(@PathVariable("card_id") Long cardId,
+                                                 @RequestBody UpdateCardDto updateCardDto,
+                                                 @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+        String email = jwtService.extractEmailFromJwt(jwt);
+
+        CardStatusAction cardStatusAction = cardRequestsValidator.validateCardStatusActionRequest(
+                updateCardDto.getAction(),
+                cardId,
+                userId);
+
+        cardService.updateCardStatus(cardStatusAction, cardId, userId, email);
+        return ResponseEntity.ok(HttpStatus.OK);
     }
 
     private String extractJwtFromHeader(String authorizationHeader) {

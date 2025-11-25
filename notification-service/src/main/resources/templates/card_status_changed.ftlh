@@ -36,23 +36,23 @@
             margin-top: 20px;
         }
     </style>
-    <title>Card Blocked Notification</title>
+    <title>Card Status Notification</title>
 </head>
 <body>
 <div id="body">
     <div id="div">
         <p>
-            We would like to inform you that your card <span class="highlight">${card_number}</span> has been <span class="highlight">blocked</span> as of <span class="highlight">${blocked_at}</span>.
+            Your card <span class="highlight">${card_number}</span> is now in status <span class="highlight">${new_status}</span>.
         </p>
         <p>
-            As a result, all transactions using this card have been temporarily suspended.
+            <strong>Timestamp:</strong> <span class="highlight">${changed_at}</span>
         </p>
         <p>
-            If you believe this was done in error, or you wish to unblock your card, please contact our support team as soon as possible.
+            If you did not perform this action, please contact our support team immediately.
         </p>
         <div class="footer">
             This is an automated message. Please do not reply to it.<br>
-            Thank you for trusting us with your banking needs.
+            Thank you for using our service!
         </div>
     </div>
 </div>
