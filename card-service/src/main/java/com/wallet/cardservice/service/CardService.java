@@ -22,13 +22,13 @@ import com.wallet.cardservice.repository.CardRepository;
 import com.wallet.cardservice.util.CardInfoCollector;
 import com.wallet.cardservice.util.CardSecurityProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -43,10 +43,7 @@ public class CardService {
     private final HolderMapper holderMapper;
     private final TransactionFeignClient transactionFeignClient;
     private final CardLimitService cardLimitService;
-    private final CardMetadataMapper cardMetadataMapper;
-    private final CardDetailsMapper cardDetailsMapper;
     private final CardCacheService cardCacheService;
-    private final CardLimitMapper cardLimitMapper;
     private final CardSortManager cardSortManager;
     private final CardInfoCollector cardInfoCollector;
 
@@ -74,48 +71,12 @@ public class CardService {
             throw new CardAccessDeniedException("Access to the card is forbidden");
         }
 
-        CardInfoDto cached = getCardInfoFromCache(cardId, userId);
-        if (cached != null) {
-            return cached;
-        }
-        return loadAndCacheCardInfo(cardId, userId);
-    }
+        CardInfoDto cardInfo = cardCacheService.getCardInfoCached(cardId, userId);
 
-    private CardInfoDto getCardInfoFromCache(Long cardId, UUID userId) {
-        CardInfoDto cachedCardInfo = cardCacheService.getCardById(cardId, userId);
-        if (cachedCardInfo == null) {
-            return null;
-        }
-        List<TransactionDto> recentTransactions = getRecentTransactions(cachedCardInfo.getSecretDetails().number());
-        cachedCardInfo.setRecentTransactions(recentTransactions);
-        return cachedCardInfo;
-    }
+        List<TransactionDto> recentTransactions = getRecentTransactions(cardInfo.getSecretDetails().number());
+        cardInfo.setRecentTransactions(recentTransactions);
 
-    private CardInfoDto loadAndCacheCardInfo(Long cardId, UUID userId) {
-        Card card = cardRepository.findById(cardId)
-                .orElseThrow(() -> new CardNotFoundException("Card not found"));
-
-        CardInfoDto cardInfoDto = getDetailedCardInfo(userId, card);
-
-        cardCacheService.saveCard(cardId, userId, cardInfoDto);
-
-        cardInfoDto.setRecentTransactions(getRecentTransactions(cardInfoDto.getSecretDetails().number()));
-        return cardInfoDto;
-    }
-
-    private CardInfoDto getDetailedCardInfo(UUID userId, Card card) {
-        CardDetails cardDetails = card.getCardDetails();
-        CardMetadata cardMetadata = card.getCardMetadata();
-        Limit limit = cardLimitService.getLimitByCard(card);
-
-        return CardInfoDto.builder()
-                .cardDto(cardMapper.toDto(card))
-                .cardMetadataDto(cardMetadataMapper.toDto(cardMetadata))
-                .holder(getCardHolder(userId))
-                .secretDetails(cardDetailsMapper.toDto(cardDetails))
-                .recentTransactions(Collections.emptyList())
-                .limit(cardLimitMapper.toDto(limit))
-                .build();
+        return cardInfo;
     }
 
     private Holder getCardHolder(UUID userId) {
@@ -199,6 +160,7 @@ public class CardService {
                 .orElse(false);
     }
 
+    @CacheEvict(value = "card", key = "#cardId + ':user:' + #userId")
     @Transactional
     public void updateCardStatus(CardStatusAction action, Long cardId, UUID userId, String email) {
         if (!isCardLinkedToUser(cardId, userId)) {

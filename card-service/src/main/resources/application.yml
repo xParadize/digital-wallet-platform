@@ -35,6 +35,8 @@ spring:
       connection-timeout: 20000
       idle-timeout: 30000
       max-lifetime: 600000
+  cache:
+    type: redis
   jpa:
     properties:
       hibernate:
