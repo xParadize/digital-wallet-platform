@@ -21,7 +21,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CardCacheService {
     private final CardRepository cardRepository;
-    private final CardLimitService cardLimitService;
+    private final LimitService limitService;
     private final UserFeignClient userFeignClient;
     private final HolderMapper holderMapper;
     private final CardMetadataMapper cardMetadataMapper;
@@ -37,7 +37,7 @@ public class CardCacheService {
 
         CardDetails cardDetails = card.getCardDetails();
         CardMetadata cardMetadata = card.getCardMetadata();
-        Limit limit = cardLimitService.getLimitByCard(card);
+        Limit limit = limitService.getLimitByCard(card);
 
         return CardInfoDto.builder()
                 .cardDto(cardMapper.toDto(card))

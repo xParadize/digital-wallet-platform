@@ -2,21 +2,27 @@ package com.wallet.cardservice.controller;
 
 import com.wallet.cardservice.dto.*;
 import com.wallet.cardservice.enums.CardStatusAction;
+import com.wallet.cardservice.exception.FieldValidationException;
 import com.wallet.cardservice.exception.IncorrectSearchPath;
 import com.wallet.cardservice.exception.InvalidAuthorizationException;
 import com.wallet.cardservice.service.CardService;
 import com.wallet.cardservice.service.JwtService;
+import com.wallet.cardservice.service.LimitService;
 import com.wallet.cardservice.util.CardRequestsValidator;
 import com.wallet.cardservice.util.CardSortValidator;
 import com.wallet.cardservice.util.PageParamsValidator;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -27,6 +33,7 @@ public class CardApiController {
     private final JwtService jwtService;
     private final PageParamsValidator pageParamsValidator;
     private final CardRequestsValidator cardRequestsValidator;
+    private final LimitService limitService;
 
     @RequestMapping(value = "/**")
     public ResponseEntity<ApiResponse> handleNotFound() {
@@ -38,7 +45,7 @@ public class CardApiController {
                                                    @RequestHeader("Authorization") String authorizationHeader) {
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-        return new ResponseEntity<>(cardService.getCardById(cardId, userId), HttpStatus.OK);
+        return new ResponseEntity<>(cardService.getCardInfo(cardId, userId), HttpStatus.OK);
     }
 
     @GetMapping("")
@@ -98,6 +105,20 @@ public class CardApiController {
         return ResponseEntity.ok(HttpStatus.NO_CONTENT);
     }
 
+    @PatchMapping("/{card_id}/limit")
+    public ResponseEntity<HttpStatus> updateLimit(@PathVariable("card_id") Long cardId,
+                                                  @RequestBody @Valid LimitDto limitDto,
+                                                  BindingResult bindingResult,
+                                                  @RequestHeader("Authorization") String authorizationHeader) {
+        validateInput(bindingResult);
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        cardRequestsValidator.validateUpdateCardLimitRequest(cardId, userId, limitDto.getLimitAmount());
+        limitService.updateLimit(cardId, userId, limitDto.getLimitAmount());
+        return ResponseEntity.ok(HttpStatus.OK);
+    }
+
     private String extractJwtFromHeader(String authorizationHeader) {
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
             throw new InvalidAuthorizationException("Invalid authorization header");
@@ -105,28 +126,22 @@ public class CardApiController {
         return authorizationHeader.substring(7);
     }
 
-//    @DeleteMapping("/card")
-//    public ResponseEntity<HttpStatus> removeCard(@RequestParam("number") String number, @RequestParam("userId") UUID userId) {
-//        cardService.removeCard(number, userId);
-//        return ResponseEntity.ok(HttpStatus.NO_CONTENT);
-//    }
-//
-//    @PatchMapping("/card")
-//    public ResponseEntity<HttpStatus> subtractMoney(@RequestParam("userId") UUID userId,
-//                                                    @RequestParam("amount") BigDecimal amount,
-//                                                    @RequestParam("cardNumber") String cardNumber) {
-//        cardService.subtractMoney(userId, amount, cardNumber);
-//        return ResponseEntity.ok(HttpStatus.OK);
-//    }
-//
-//    @GetMapping("/card/linked")
-//    public boolean isCardLinkedToUser(@RequestParam("cardNumber") String cardNumber,
-//                                             @RequestParam("userId") UUID userId) {
-//        return cardService.isCardLinkedToUser(cardNumber, userId);
-//    }
-//
-//    @GetMapping("/card/{number}/status")
-//    public ResponseEntity<CardStatusDto> getCardStatus(@PathVariable("number") String number) {
-//        return new ResponseEntity<>(cardService.getCardStatus(number), HttpStatus.OK);
-//    }
+    private void validateInput(BindingResult bindingResult) {
+        if (bindingResult.hasFieldErrors()) {
+            List<InputFieldError> fieldErrors = getInputFieldErrors(bindingResult);
+            throw new FieldValidationException("Validation failed", fieldErrors);
+        }
+    }
+
+    private List<InputFieldError> getInputFieldErrors(BindingResult bindingResult) {
+        return bindingResult.getFieldErrors().stream()
+                .collect(Collectors.groupingBy(
+                        FieldError::getField,
+                        Collectors.mapping(FieldError::getDefaultMessage, Collectors.toList())
+                ))
+                .entrySet()
+                .stream()
+                .map(entry -> new InputFieldError(entry.getKey(), entry.getValue()))
+                .toList();
+    }
 }

@@ -16,8 +16,6 @@ import java.time.Duration;
 @Configuration
 @EnableCaching
 public class CardCacheConfiguration {
-    private static final String CARD_CACHE_KEY_PREFIX = "card:";
-    private static final String CARD_CACHE_KEY = "card";
     private static final long CARD_TTL = 1_209_600_000; // 2 weeks
 
     @Bean
@@ -29,13 +27,11 @@ public class CardCacheConfiguration {
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer))
                 .entryTtl(Duration.ofMillis(CARD_TTL))
-                .disableCachingNullValues();
-
-        RedisCacheConfiguration cardConfig = defaultConfig.prefixCacheNameWith(CARD_CACHE_KEY_PREFIX);
+                .disableCachingNullValues()
+                .computePrefixWith(cacheName -> cacheName + ":");
 
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(defaultConfig)
-                .withCacheConfiguration(CARD_CACHE_KEY, cardConfig)
                 .build();
     }
 }

@@ -1,8 +1,18 @@
 package com.wallet.cardservice.dto;
 
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.math.BigDecimal;
 
-public record LimitDto(
-        BigDecimal limitAmount
-) {
+@Getter
+@Setter
+public class LimitDto {
+    @DecimalMin(value = "100.00", inclusive = true, message = "The limit can't be less than 100")
+    @Digits(integer = 15, fraction = 2, message = "Incorrect number format")
+    @NotNull(message = "Field 'limitAmount' shouldn't be empty")
+    BigDecimal limitAmount;
 }

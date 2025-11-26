@@ -1,26 +1,20 @@
 package com.wallet.cardservice.controller;
 
 import com.wallet.cardservice.dto.*;
-import com.wallet.cardservice.entity.Card;
-import com.wallet.cardservice.enums.CardStatus;
-import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.exception.FieldValidationException;
 import com.wallet.cardservice.exception.IncorrectSearchPath;
 import com.wallet.cardservice.exception.InvalidAuthorizationException;
-import com.wallet.cardservice.service.CardLimitService;
+import com.wallet.cardservice.service.LimitService;
 import com.wallet.cardservice.service.CardService;
 import com.wallet.cardservice.service.JwtService;
 import com.wallet.cardservice.util.CardRequestsValidator;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -29,7 +23,7 @@ import java.util.stream.Collectors;
 public class CardController {
     private final CardService cardService;
     private final JwtService jwtService;
-    private final CardLimitService cardLimitService;
+    private final LimitService limitService;
     private final CardRequestsValidator cardRequestsValidator;
 
     @RequestMapping(value = "/**")

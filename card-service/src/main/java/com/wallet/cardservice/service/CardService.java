@@ -17,7 +17,8 @@ import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.feign.TransactionFeignClient;
 import com.wallet.cardservice.feign.UserFeignClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
-import com.wallet.cardservice.mapper.*;
+import com.wallet.cardservice.mapper.CardMapper;
+import com.wallet.cardservice.mapper.HolderMapper;
 import com.wallet.cardservice.repository.CardRepository;
 import com.wallet.cardservice.util.CardInfoCollector;
 import com.wallet.cardservice.util.CardSecurityProvider;
@@ -42,7 +43,7 @@ public class CardService {
     private final UserFeignClient userFeignClient;
     private final HolderMapper holderMapper;
     private final TransactionFeignClient transactionFeignClient;
-    private final CardLimitService cardLimitService;
+    private final LimitService limitService;
     private final CardCacheService cardCacheService;
     private final CardSortManager cardSortManager;
     private final CardInfoCollector cardInfoCollector;
@@ -66,17 +67,26 @@ public class CardService {
     }
 
     @Transactional(readOnly = true)
-    public CardInfoDto getCardById(Long cardId, UUID userId) {
+    public Card getCardById(Long cardId, UUID userId) {
+        if (!isCardLinkedToUser(cardId, userId)) {
+            throw new CardAccessDeniedException("Access to the card is forbidden");
+        }
+        return cardRepository.findById(cardId)
+                .orElseThrow(() -> new CardNotFoundException("Card not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public CardInfoDto getCardInfo(Long cardId, UUID userId) {
         if (!isCardLinkedToUser(cardId, userId)) {
             throw new CardAccessDeniedException("Access to the card is forbidden");
         }
 
-        CardInfoDto cardInfo = cardCacheService.getCardInfoCached(cardId, userId);
+        CardInfoDto cardInfoDto = cardCacheService.getCardInfoCached(cardId, userId);
 
-        List<TransactionDto> recentTransactions = getRecentTransactions(cardInfo.getSecretDetails().number());
-        cardInfo.setRecentTransactions(recentTransactions);
+        List<TransactionDto> recentTransactions = getRecentTransactions(cardInfoDto.getSecretDetails().number());
+        cardInfoDto.setRecentTransactions(recentTransactions);
 
-        return cardInfo;
+        return cardInfoDto;
     }
 
     private Holder getCardHolder(UUID userId) {
@@ -136,7 +146,7 @@ public class CardService {
     }
 
     private void linkCardLimit(Card card) {
-        Limit limit = cardLimitService.createDefaultLimit();
+        Limit limit = limitService.createDefaultLimit();
         limit.setCard(card);
         card.setLimit(limit);
     }
