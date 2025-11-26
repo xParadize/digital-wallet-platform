@@ -89,6 +89,15 @@ public class CardApiController {
         return ResponseEntity.ok(HttpStatus.OK);
     }
 
+    @DeleteMapping("/{card_id}")
+    public ResponseEntity<HttpStatus> deleteCard(@PathVariable("card_id") Long cardId,
+                                                 @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+        cardService.deleteCard(cardId, userId);
+        return ResponseEntity.ok(HttpStatus.NO_CONTENT);
+    }
+
     private String extractJwtFromHeader(String authorizationHeader) {
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
             throw new InvalidAuthorizationException("Invalid authorization header");

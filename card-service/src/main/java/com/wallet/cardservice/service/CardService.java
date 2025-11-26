@@ -197,22 +197,14 @@ public class CardService {
         );
     }
 
-//    @Transactional
-//    public void removeCard(String number, UUID userId) {
-//        if (!isCardLinkedToUser(number, userId)) {
-//            throw new CardAccessDeniedException("You can't remove someone's card");
-//        }
-//        cardRepository.deleteCardByNumber(number);
-//    }
-
-//    public CardStatusDto getCardStatus(String number) {
-//        Card card = getCardByNumber(number);
-//        return new CardStatusDto(
-//                card.isFrozen(),
-//                card.isBlocked(),
-//                cardDataValidator.isCardExpired(card.getExpirationDate())
-//        );
-//    }
+    @CacheEvict(value = "card", key = "#cardId + ':user:' + #userId")
+    @Transactional
+    public void deleteCard(Long cardId, UUID userId) {
+        if (!isCardLinkedToUser(cardId, userId)) {
+            throw new CardAccessDeniedException("You can't delete someone's card");
+        }
+        cardRepository.deleteById(cardId);
+    }
 
 //    @Transactional
 //    public void subtractMoney(UUID userId, BigDecimal amount, String cardNumber) {

@@ -31,7 +31,6 @@ public class CardRequestsValidator {
 
     private CardStatusAction convertStringToCardStatusAction(String action) {
         try {
-            System.out.println(action);
             return CardStatusAction.valueOf(action.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new CardStatusActionException("Invalid card action: " + action);
