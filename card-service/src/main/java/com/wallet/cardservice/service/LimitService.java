@@ -1,13 +1,16 @@
 package com.wallet.cardservice.service;
 
+import com.wallet.cardservice.dto.LimitDto;
 import com.wallet.cardservice.entity.Card;
 import com.wallet.cardservice.entity.Limit;
 import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.CardLimitException;
 import com.wallet.cardservice.exception.CardLimitNotFoundException;
 import com.wallet.cardservice.exception.CardNotFoundException;
+import com.wallet.cardservice.mapper.LimitMapper;
 import com.wallet.cardservice.repository.CardRepository;
 import com.wallet.cardservice.repository.LimitRepository;
+import com.wallet.cardservice.util.CardSecurityProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
@@ -24,10 +27,12 @@ public class LimitService {
     private BigDecimal defaultPerTransactionLimit;
     private final LimitRepository limitRepository;
     private final CardRepository cardRepository;
+    private final LimitMapper limitMapper;
+    private final CardSecurityProvider cardSecurityProvider;
 
     @Transactional(readOnly = true)
-    public Limit getLimitByCard(Card card) {
-        return limitRepository.findByCard(card)
+    public Limit getLimitByCard(Long cardId) {
+        return limitRepository.findByCard_Id(cardId)
                 .orElseThrow(CardLimitNotFoundException::new);
     }
 
@@ -36,6 +41,12 @@ public class LimitService {
         return Limit.builder()
                 .limitAmount(defaultPerTransactionLimit)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public LimitDto getLimitDto(Long cardId, UUID userId) {
+        cardSecurityProvider.checkCardOwner(cardId, userId);
+        return limitMapper.toDto(getLimitByCard(cardId));
     }
 
     @CacheEvict(value = "card", key = "#cardId + ':user:' + #userId")
@@ -58,30 +69,4 @@ public class LimitService {
         oldLimit.setLimitAmount(newLimit);
         limitRepository.save(oldLimit);
     }
-
-//    @Transactional
-//    public void saveLimit(Limit limit, Card card) {
-//        card.setLimit(limit);
-//        limitRepository.save(limit);
-//    }
-//
-//
-//    @Transactional
-//    public void removeLimit(Card card) {
-//        Limit limit = card.getLimit();
-//        if (limit == null)
-//            throw new CardLimitException("Card has no limit set");
-//
-//        card.setLimit(createDefaultLimit(card));
-//        limitRepository.delete(limit);
-//        cardRepository.save(card);
-//    }
-//
-//    private Limit createDefaultLimit(Card card) {
-//        return Limit.builder()
-//                .perTransactionLimit(defaultPerTransactionLimit)
-//                .limitEnabled(true)
-//                .card(card)
-//                .build();
-//    }
 }

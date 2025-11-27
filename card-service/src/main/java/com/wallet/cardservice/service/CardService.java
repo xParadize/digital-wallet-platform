@@ -11,7 +11,6 @@ import com.wallet.cardservice.enums.CardStatus;
 import com.wallet.cardservice.enums.CardStatusAction;
 import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.event.CardStatusChangedEvent;
-import com.wallet.cardservice.exception.CardAccessDeniedException;
 import com.wallet.cardservice.exception.CardNotFoundException;
 import com.wallet.cardservice.exception.CardStatusActionException;
 import com.wallet.cardservice.feign.TransactionFeignClient;
@@ -47,6 +46,7 @@ public class CardService {
     private final CardCacheService cardCacheService;
     private final CardSortManager cardSortManager;
     private final CardInfoCollector cardInfoCollector;
+    private final CardSecurityProvider cardSecurityProvider;
 
     private final int RECENT_TRANSACTIONS_COUNT = 3;
 
@@ -68,18 +68,14 @@ public class CardService {
 
     @Transactional(readOnly = true)
     public Card getCardById(Long cardId, UUID userId) {
-        if (!isCardLinkedToUser(cardId, userId)) {
-            throw new CardAccessDeniedException("Access to the card is forbidden");
-        }
+        cardSecurityProvider.checkCardOwner(cardId, userId);
         return cardRepository.findById(cardId)
                 .orElseThrow(() -> new CardNotFoundException("Card not found"));
     }
 
     @Transactional(readOnly = true)
     public CardInfoDto getCardInfo(Long cardId, UUID userId) {
-        if (!isCardLinkedToUser(cardId, userId)) {
-            throw new CardAccessDeniedException("Access to the card is forbidden");
-        }
+        cardSecurityProvider.checkCardOwner(cardId, userId);
 
         CardInfoDto cardInfoDto = cardCacheService.getCardInfoCached(cardId, userId);
 
@@ -155,7 +151,7 @@ public class CardService {
         CardLinkedEvent event = new CardLinkedEvent(
                 card.getUserId(),
                 email,
-                CardSecurityProvider.maskCardNumber(card.getCardDetails().getNumber()),
+                cardSecurityProvider.maskCardNumber(card.getCardDetails().getNumber()),
                 card.getCardMetadata().getIssuer(),
                 card.getCardMetadata().getPaymentScheme(),
                 Instant.now()
@@ -163,19 +159,10 @@ public class CardService {
         cardKafkaProducer.sendCardLinkedEvent(event);
     }
 
-    @Transactional(readOnly = true)
-    public boolean isCardLinkedToUser(Long cardId, UUID userId) {
-        return cardRepository.findById(cardId)
-                .map(card -> card.getUserId().equals(userId))
-                .orElse(false);
-    }
-
     @CacheEvict(value = "card", key = "#cardId + ':user:' + #userId")
     @Transactional
     public void updateCardStatus(CardStatusAction action, Long cardId, UUID userId, String email) {
-        if (!isCardLinkedToUser(cardId, userId)) {
-            throw new CardAccessDeniedException("You can't update someone's card");
-        }
+        cardSecurityProvider.checkCardOwner(cardId, userId);
 
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new CardNotFoundException("Card not found"));
@@ -199,7 +186,7 @@ public class CardService {
         cardRepository.save(card);
         cardKafkaProducer.sendCardStatusChangedEvent(new CardStatusChangedEvent(
                         email,
-                        CardSecurityProvider.maskCardNumber(card.getCardDetails().getNumber()),
+                        cardSecurityProvider.maskCardNumber(card.getCardDetails().getNumber()),
                         card.getStatus().toString(),
                         Instant.now()
                 ),
@@ -210,9 +197,7 @@ public class CardService {
     @CacheEvict(value = "card", key = "#cardId + ':user:' + #userId")
     @Transactional
     public void deleteCard(Long cardId, UUID userId) {
-        if (!isCardLinkedToUser(cardId, userId)) {
-            throw new CardAccessDeniedException("You can't delete someone's card");
-        }
+        cardSecurityProvider.checkCardOwner(cardId, userId);
         cardRepository.deleteById(cardId);
     }
 

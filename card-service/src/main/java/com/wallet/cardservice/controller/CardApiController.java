@@ -105,6 +105,14 @@ public class CardApiController {
         return ResponseEntity.ok(HttpStatus.NO_CONTENT);
     }
 
+    @GetMapping("/{card_id}/limit")
+    public ResponseEntity<LimitDto> getLimit(@PathVariable("card_id") Long cardId,
+                                             @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+        return new ResponseEntity<>(limitService.getLimitDto(cardId, userId), HttpStatus.OK);
+    }
+
     @PatchMapping("/{card_id}/limit")
     public ResponseEntity<HttpStatus> updateLimit(@PathVariable("card_id") Long cardId,
                                                   @RequestBody @Valid LimitDto limitDto,

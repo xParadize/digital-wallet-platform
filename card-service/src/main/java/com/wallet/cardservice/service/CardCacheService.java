@@ -26,7 +26,7 @@ public class CardCacheService {
     private final HolderMapper holderMapper;
     private final CardMetadataMapper cardMetadataMapper;
     private final CardDetailsMapper cardDetailsMapper;
-    private final CardLimitMapper cardLimitMapper;
+    private final LimitMapper limitMapper;
     private final CardMapper cardMapper;
 
     @Cacheable(value = "card", key = "#cardId + ':user:' + #userId")
@@ -37,7 +37,7 @@ public class CardCacheService {
 
         CardDetails cardDetails = card.getCardDetails();
         CardMetadata cardMetadata = card.getCardMetadata();
-        Limit limit = limitService.getLimitByCard(card);
+        Limit limit = limitService.getLimitByCard(card.getId());
 
         return CardInfoDto.builder()
                 .cardDto(cardMapper.toDto(card))
@@ -45,7 +45,7 @@ public class CardCacheService {
                 .holder(holderMapper.toEntity(userFeignClient.getCardHolder(userId).getBody()))
                 .secretDetails(cardDetailsMapper.toDto(cardDetails))
                 .recentTransactions(Collections.emptyList())
-                .limit(cardLimitMapper.toDto(limit))
+                .limit(limitMapper.toDto(limit))
                 .build();
     }
 }
