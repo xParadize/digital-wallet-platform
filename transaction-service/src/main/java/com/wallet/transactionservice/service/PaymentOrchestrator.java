@@ -1,9 +1,6 @@
 package com.wallet.transactionservice.service;
 
-import com.wallet.transactionservice.dto.CardInfoDto;
-import com.wallet.transactionservice.dto.PaymentOffer;
-import com.wallet.transactionservice.dto.PaymentRequestDto;
-import com.wallet.transactionservice.dto.PaymentResult;
+import com.wallet.transactionservice.dto.*;
 import com.wallet.transactionservice.entity.PaymentOfferEntity;
 import com.wallet.transactionservice.feign.CardFeignClient;
 import com.wallet.transactionservice.mapper.PaymentOfferMapper;
@@ -22,6 +19,7 @@ public class PaymentOrchestrator {
     private final CacheService cacheService;
     private final PaymentOfferEntityService paymentOfferEntityService;
     private final PaymentOfferMapper paymentOfferMapper;
+    private final OtpService otpService;
 
     public PaymentResult processPayment(UUID userId, String offerId, PaymentRequestDto paymentRequest) {
         PaymentOffer paymentOffer = cacheService.getPaymentOfferById(offerId);
@@ -34,8 +32,27 @@ public class PaymentOrchestrator {
 
         UUID transactionId = transactionService.createTransaction(userId, savedOffer, paymentRequest.getCardNumber());
 
+        if (shouldRequireOtpVerification(cardInfo.getLimit(), paymentOffer)) {
+            return handleOtpVerification(userId, paymentOffer);
+        }
+
         transactionService.finishTransactionById(transactionId);
 
         return PaymentResult.success();
     }
+
+    private boolean shouldRequireOtpVerification(LimitDto limitDto, PaymentOffer paymentOffer) {
+        return limitDto.getLimitAmount() != null && paymentOffer.amount().value().compareTo(limitDto.getLimitAmount()) > 0;
+    }
+
+    private PaymentResult handleOtpVerification(UUID userId, PaymentOffer paymentOffer) {
+        otpService.initiateOtp(userId, String.valueOf(paymentOffer.id()));
+        String continuePaymentLink = String.format(
+                "http://localhost:8100/api/v1/otp/verify?userId=%s&offerId=%s",
+                userId, paymentOffer.id()
+        );
+        String message = "You have exceeded the allowed payment limit. Please complete the OTP verification by following this link: " + continuePaymentLink;
+        return PaymentResult.requiresOtp(message);
+    }
+
 }
