@@ -1,6 +1,6 @@
 package com.wallet.cardservice.feign;
 
-import com.wallet.cardservice.dto.HolderDto;
+import com.wallet.cardservice.dto.Holder;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,5 +12,5 @@ import java.util.UUID;
 public interface UserFeignClient {
 
     @GetMapping("/api/v1/users/{id}/holder")
-    ResponseEntity<HolderDto> getCardHolder(@PathVariable("id") UUID userId);
+    ResponseEntity<Holder> getCardHolder(@PathVariable("id") UUID userId);
 }

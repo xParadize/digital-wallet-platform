@@ -7,56 +7,51 @@ import com.wallet.transactionservice.exception.PaymentOfferNotFoundException;
 import com.wallet.transactionservice.util.InstantDeserializer;
 import com.wallet.transactionservice.util.InstantSerializer;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import redis.clients.jedis.UnifiedJedis;
-import redis.clients.jedis.exceptions.JedisException;
 
 import java.time.Instant;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CacheService {
-    @Value("${REDIS_HOST}")
-    private String redisHost;
+    private final RedisTemplate<String, String> redisTemplate;
+    private static final String PAYMENT_OFFER_KEY = "offer:";
 
-    @Value("${REDIS_PORT}")
-    private int redisPort;
-
-    private final String PAYMENT_OFFER_KEY = "offer:";
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Instant.class, new InstantDeserializer())
             .registerTypeAdapter(Instant.class, new InstantSerializer())
             .create();
-    private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 
     public PaymentOffer getPaymentOfferById(String offerId) {
-        try (UnifiedJedis jedis = new UnifiedJedis(String.format("http://%s:%s", redisHost, redisPort))) {
+        try {
             String key = PAYMENT_OFFER_KEY + offerId;
-            String json = jedis.get(key);
+            String json = redisTemplate.opsForValue().get(key);
 
             if (json == null) {
+                log.warn("No offer found in Redis for id: {}", offerId);
                 throw new PaymentOfferNotFoundException("No offer found for id: " + offerId);
             }
 
+            log.debug("Successfully retrieved offer {} from Redis", offerId);
             return GSON.fromJson(json, PaymentOffer.class);
-        } catch (JedisException e) {
-            LOGGER.error("Redis error while getting offer with id {}", offerId, e);
-            throw new JedisException("Redis error", e);
+
+        } catch (PaymentOfferNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Redis error while getting offer with id {}", offerId, e);
+            throw new RuntimeException("Redis error", e);
         }
     }
 
-    @Transactional
     public void removeOffer(String offerId) {
-        try (UnifiedJedis jedis = new UnifiedJedis(String.format("http://%s:%s", redisHost, redisPort))) {
+        try {
             String key = PAYMENT_OFFER_KEY + offerId;
-            jedis.del(key);
-        } catch (JedisException e) {
-            LOGGER.error("Redis error while removing offer with id {}", offerId, e);
-            throw new JedisException("Redis error", e);
+            redisTemplate.delete(key);
+        } catch (Exception e) {
+            throw new RuntimeException("Redis error", e);
         }
     }
 }

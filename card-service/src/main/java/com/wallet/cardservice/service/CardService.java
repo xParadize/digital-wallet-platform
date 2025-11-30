@@ -13,11 +13,10 @@ import com.wallet.cardservice.event.CardLinkedEvent;
 import com.wallet.cardservice.event.CardStatusChangedEvent;
 import com.wallet.cardservice.exception.CardNotFoundException;
 import com.wallet.cardservice.exception.CardStatusActionException;
+import com.wallet.cardservice.exception.InsufficientBalanceException;
 import com.wallet.cardservice.feign.TransactionFeignClient;
-import com.wallet.cardservice.feign.UserFeignClient;
 import com.wallet.cardservice.kafka.CardKafkaProducer;
 import com.wallet.cardservice.mapper.CardMapper;
-import com.wallet.cardservice.mapper.HolderMapper;
 import com.wallet.cardservice.repository.CardRepository;
 import com.wallet.cardservice.util.CardInfoCollector;
 import com.wallet.cardservice.util.CardSecurityProvider;
@@ -28,6 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -39,14 +39,13 @@ public class CardService {
     private final CardRepository cardRepository;
     private final CardMapper cardMapper;
     private final CardKafkaProducer cardKafkaProducer;
-    private final UserFeignClient userFeignClient;
-    private final HolderMapper holderMapper;
     private final TransactionFeignClient transactionFeignClient;
     private final LimitService limitService;
     private final CardCacheService cardCacheService;
     private final CardSortManager cardSortManager;
     private final CardInfoCollector cardInfoCollector;
     private final CardSecurityProvider cardSecurityProvider;
+    private final CardInfoService cardInfoService;
 
     private final int RECENT_TRANSACTIONS_COUNT = 3;
 
@@ -74,20 +73,16 @@ public class CardService {
     }
 
     @Transactional(readOnly = true)
-    public CardInfoDto getCardInfo(Long cardId, UUID userId) {
-        cardSecurityProvider.checkCardOwner(cardId, userId);
-
-        CardInfoDto cardInfoDto = cardCacheService.getCardInfoCached(cardId, userId);
-
+    public CardInfoDto getCardInfoById(Long cardId, UUID userId) {
+        CardInfoDto cardInfoDto = cardInfoService.getCardInfoById(cardId, userId);
         List<TransactionDto> recentTransactions = getRecentTransactions(cardInfoDto.getSecretDetails().number());
         cardInfoDto.setRecentTransactions(recentTransactions);
-
         return cardInfoDto;
     }
 
-    private Holder getCardHolder(UUID userId) {
-        HolderDto dto = userFeignClient.getCardHolder(userId).getBody();
-        return holderMapper.toEntity(dto);
+    @Transactional(readOnly = true)
+    public CardInfoDto getCardInfoByNumber(String cardNumber, UUID userId) {
+        return cardInfoService.getCardInfoByNumber(cardNumber, userId);
     }
 
     private List<TransactionDto> getRecentTransactions(String cardNumber) {
@@ -159,7 +154,6 @@ public class CardService {
         cardKafkaProducer.sendCardLinkedEvent(event);
     }
 
-    @CacheEvict(value = "card", key = "#cardId + ':user:' + #userId")
     @Transactional
     public void updateCardStatus(CardStatusAction action, Long cardId, UUID userId, String email) {
         cardSecurityProvider.checkCardOwner(cardId, userId);
@@ -192,6 +186,7 @@ public class CardService {
                 ),
                 userId
         );
+        cardCacheService.evictCardById(cardId);
     }
 
     @CacheEvict(value = "card", key = "#cardId + ':user:' + #userId")
@@ -201,18 +196,18 @@ public class CardService {
         cardRepository.deleteById(cardId);
     }
 
-//    @Transactional
-//    public void subtractMoney(UUID userId, BigDecimal amount, String cardNumber) {
-//        Card card = getCardByNumber(cardNumber);
-//
-//        if (!isCardLinkedToUser(cardNumber, userId)) {
-//            throw new CardAccessDeniedException("You can't subtract money from someone's card");
-//        }
-//
-//        if (card.getMoney().compareTo(amount) < 0) {
-//            throw new InsufficientBalanceException("Insufficient balance");
-//        }
-//        card.setMoney(card.getMoney().subtract(amount));
-//        cardRepository.save(card);
-//    }
+    @Transactional
+    public void subtractMoney(String cardNumber, UUID userId, BigDecimal amount) {
+        Card card = cardRepository.findByCardDetails_Number(cardNumber)
+                .orElseThrow(() -> new CardNotFoundException("Card not found"));
+        cardSecurityProvider.checkCardOwner(card.getId(), userId);
+        if (card.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException("Insufficient balance");
+        }
+        card.setBalance(card.getBalance().subtract(amount));
+        cardRepository.save(card);
+
+        cardCacheService.evictCardById(card.getId());
+        cardCacheService.evictAllCardsByNumber(cardNumber);
+    }
 }

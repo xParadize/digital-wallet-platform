@@ -27,12 +27,6 @@ spring:
     import: optional:file:.env[.properties]
   cache:
     type: redis
-    cache-names: redis-cache
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
   datasource:
     username: ${POSTGRES_USERNAME}
     url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_TRANSACTION_SERVICE_DB}
@@ -100,7 +94,7 @@ logging:
 security:
   jwt:
     secret: ${JWT_SECRET}
-    expirationMs: ${JWY_EXPIRATION_TIME_MS}
+    expirationMs: ${JWT_EXPIRATION_TIME_MS}
 
 transaction:
   per-page: ${TRANSACTIONS_PER_PAGE}

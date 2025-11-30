@@ -86,4 +86,4 @@ logging:
 security:
   jwt:
     secret: ${JWT_SECRET}
-    expirationMs: ${JWY_EXPIRATION_TIME_MS}
+    expirationMs: ${JWT_EXPIRATION_TIME_MS}

@@ -33,6 +33,24 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     List<Card> findAllByUserIdOrderByBalanceAsc(UUID userId, Pageable pageable);
 
     @Query("SELECT c FROM Card c " +
+            "LEFT JOIN FETCH c.cardDetails cd " +
+            "LEFT JOIN FETCH c.cardMetadata cm " +
+            "LEFT JOIN FETCH c.limit l " +
+            "WHERE cd.number = :cardNumber AND c.userId = :userId")
+    Optional<Card> findByCardNumberAndUserIdWithDetails(
+            @Param("cardNumber") String cardNumber,
+            @Param("userId") UUID userId
+    );
+
+    @Query("SELECT c.id FROM Card c " +
+            "JOIN c.cardDetails cd " +
+            "WHERE cd.number = :cardNumber")
+    Optional<Long> findIdByCardDetails_Number(String cardNumber);
+
+    @EntityGraph(attributePaths = {"cardMetadata", "cardDetails", "limit"})
+    Optional<Card> findByCardDetails_Number(String cardNumber);
+
+    @Query("SELECT c FROM Card c " +
             "JOIN FETCH c.cardDetails cd " +
             "JOIN FETCH c.cardMetadata cm " +
             "JOIN FETCH c.limit " +
@@ -63,6 +81,4 @@ public interface CardRepository extends JpaRepository<Card, Long> {
             "WHERE c.userId = :userId " +
             "ORDER BY l.limitAmount ASC")
     List<Card> findByUserIdOrderByLimitValueAsc(@Param("userId") UUID userId, Pageable pageable);
-//
-//    void deleteCardByNumber(String number);
 }

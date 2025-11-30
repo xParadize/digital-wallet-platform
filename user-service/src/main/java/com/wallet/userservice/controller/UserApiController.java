@@ -1,6 +1,6 @@
 package com.wallet.userservice.controller;
 
-import com.wallet.userservice.dto.HolderDto;
+import com.wallet.userservice.dto.Holder;
 import com.wallet.userservice.entity.UnverifiedUser;
 import com.wallet.userservice.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ public class UserApiController {
     }
 
     @GetMapping("/{id}/holder")
-    public HolderDto getCardHolder(@PathVariable("id") UUID userId) {
+    public Holder getCardHolder(@PathVariable("id") UUID userId) {
         return userService.getCardHolder(userId);
     }
 }

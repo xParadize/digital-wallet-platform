@@ -29,6 +29,7 @@ public class LimitService {
     private final CardRepository cardRepository;
     private final LimitMapper limitMapper;
     private final CardSecurityProvider cardSecurityProvider;
+    private final CardCacheService cardCacheService;
 
     @Transactional(readOnly = true)
     public Limit getLimitByCard(Long cardId) {
@@ -68,5 +69,6 @@ public class LimitService {
 
         oldLimit.setLimitAmount(newLimit);
         limitRepository.save(oldLimit);
+        cardCacheService.evictCardById(cardId);
     }
 }

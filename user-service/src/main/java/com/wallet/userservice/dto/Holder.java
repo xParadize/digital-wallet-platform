@@ -1,4 +1,4 @@
-package com.wallet.transactionservice.dto;
+package com.wallet.userservice.dto;
 
 import java.util.UUID;
 

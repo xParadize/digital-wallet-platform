@@ -1,51 +1,60 @@
 package com.wallet.cardservice.service;
 
-import com.wallet.cardservice.dto.CardInfoDto;
+import com.wallet.cardservice.dto.CachedCardInfo;
+import com.wallet.cardservice.dto.Holder;
 import com.wallet.cardservice.entity.Card;
-import com.wallet.cardservice.entity.CardDetails;
-import com.wallet.cardservice.entity.CardMetadata;
-import com.wallet.cardservice.entity.Limit;
 import com.wallet.cardservice.exception.CardNotFoundException;
 import com.wallet.cardservice.feign.UserFeignClient;
-import com.wallet.cardservice.mapper.*;
+import com.wallet.cardservice.mapper.CardDetailsMapper;
+import com.wallet.cardservice.mapper.CardMapper;
+import com.wallet.cardservice.mapper.CardMetadataMapper;
+import com.wallet.cardservice.mapper.LimitMapper;
 import com.wallet.cardservice.repository.CardRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class CardCacheService {
     private final CardRepository cardRepository;
-    private final LimitService limitService;
     private final UserFeignClient userFeignClient;
-    private final HolderMapper holderMapper;
     private final CardMetadataMapper cardMetadataMapper;
     private final CardDetailsMapper cardDetailsMapper;
     private final LimitMapper limitMapper;
     private final CardMapper cardMapper;
 
-    @Cacheable(value = "card", key = "#cardId + ':user:' + #userId")
+    @Cacheable(value = "card", key = "#cardId")
     @Transactional(readOnly = true)
-    public CardInfoDto getCardInfoCached(Long cardId, UUID userId) {
+    public CachedCardInfo getCardInfoCached(Long cardId) {
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new CardNotFoundException("Card not found"));
 
-        CardDetails cardDetails = card.getCardDetails();
-        CardMetadata cardMetadata = card.getCardMetadata();
-        Limit limit = limitService.getLimitByCard(card.getId());
+        return buildCachedCardInfo(card);
+    }
 
-        return CardInfoDto.builder()
+    @Cacheable(value = "holder", key = "#userId")
+    public Holder getHolderCached(UUID userId) {
+        return userFeignClient.getCardHolder(userId).getBody();
+    }
+
+    @CacheEvict(value = "card", key = "#cardId")
+    public void evictCardById(Long cardId) {}
+
+    @CacheEvict(value = "cardByNumber", key = "#number")
+    public void evictAllCardsByNumber(String number) {}
+
+    private CachedCardInfo buildCachedCardInfo(Card card) {
+        return CachedCardInfo.builder()
+                .userId(card.getUserId())
                 .cardDto(cardMapper.toDto(card))
-                .cardMetadataDto(cardMetadataMapper.toDto(cardMetadata))
-                .holder(holderMapper.toEntity(userFeignClient.getCardHolder(userId).getBody()))
-                .secretDetails(cardDetailsMapper.toDto(cardDetails))
-                .recentTransactions(Collections.emptyList())
-                .limit(limitMapper.toDto(limit))
+                .cardMetadataDto(cardMetadataMapper.toDto(card.getCardMetadata()))
+                .secretDetails(cardDetailsMapper.toDto(card.getCardDetails()))
+                .limit(limitMapper.toDto(card.getLimit()))
                 .build();
     }
 }

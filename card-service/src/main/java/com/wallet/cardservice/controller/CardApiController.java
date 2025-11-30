@@ -19,6 +19,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -45,7 +46,16 @@ public class CardApiController {
                                                    @RequestHeader("Authorization") String authorizationHeader) {
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-        return new ResponseEntity<>(cardService.getCardInfo(cardId, userId), HttpStatus.OK);
+        return new ResponseEntity<>(cardService.getCardInfoById(cardId, userId), HttpStatus.OK);
+    }
+
+    // только для внутренних вызовов между сервисами
+    @GetMapping("/{card_number}/lookup")
+    public CardInfoDto getCardByNumber(@PathVariable("card_number") String number,
+                                                   @RequestHeader("Authorization") String authorizationHeader) {
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+        return cardService.getCardInfoByNumber(number, userId);
     }
 
     @GetMapping("")
@@ -124,6 +134,14 @@ public class CardApiController {
 
         cardRequestsValidator.validateUpdateCardLimitRequest(cardId, userId, limitDto.getLimitAmount());
         limitService.updateLimit(cardId, userId, limitDto.getLimitAmount());
+        return ResponseEntity.ok(HttpStatus.OK);
+    }
+
+    @PostMapping("/{card_number}/payment")
+    public ResponseEntity<HttpStatus> createPayment(@PathVariable("card_number") String cardNumber,
+                                                    @RequestParam("userId") UUID userId,
+                                                    @RequestParam("amount") BigDecimal amount) {
+        cardService.subtractMoney(cardNumber, userId, amount);
         return ResponseEntity.ok(HttpStatus.OK);
     }
 
