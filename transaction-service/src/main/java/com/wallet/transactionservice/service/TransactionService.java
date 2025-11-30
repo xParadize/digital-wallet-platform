@@ -6,14 +6,9 @@ import com.wallet.transactionservice.entity.Transaction;
 import com.wallet.transactionservice.enums.CardType;
 import com.wallet.transactionservice.enums.TransactionStatus;
 import com.wallet.transactionservice.exception.TransactionNotFoundException;
-import com.wallet.transactionservice.feign.AnalyticsFeignClient;
 import com.wallet.transactionservice.feign.CardFeignClient;
-import com.wallet.transactionservice.mapper.PaymentOfferMapper;
 import com.wallet.transactionservice.mapper.TransactionMapper;
 import com.wallet.transactionservice.repository.TransactionRepository;
-import com.wallet.transactionservice.util.DateConverter;
-import com.wallet.transactionservice.util.LocalDateValidator;
-import com.wallet.transactionservice.util.PaymentValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Limit;
@@ -34,33 +29,11 @@ public class TransactionService {
     private final CacheService cacheService;
     private final TransactionRepository transactionRepository;
     private final CardFeignClient cardFeignClient;
-    private final PaymentValidator paymentValidator;
-    private final OtpService otpService;
-    private final PaymentOfferMapper paymentOfferMapper;
     private final PaymentOfferEntityService paymentOfferEntityService;
-    private final LocalDateValidator localDateValidator;
-    private final DateConverter dateConverter;
-    private final AnalyticsFeignClient analyticsFeignClient;
     private final TransactionMapper transactionMapper;
 
     @Value("${transaction.per-page}")
     private int transactionsPerPage;
-
-//    private boolean shouldRequireOtpVerification(CardDetailsDto cardDetails, PaymentOffer paymentOffer) {
-//        return cardDetails.getLimit() != null
-//                && cardDetails.getLimit().limitEnabled()
-//                && paymentOffer.amount().value().compareTo(cardDetails.getLimit().perTransactionLimit()) > 0;
-//    }
-//
-//    private PaymentResult handleOtpVerification(UUID userId, PaymentOffer paymentOffer) {
-//        otpService.initiateOtp(userId, String.valueOf(paymentOffer.id()));
-//        String continuePaymentLink = String.format(
-//                "http://localhost:8100/api/v1/otp/verify?userId=%s&offerId=%s",
-//                userId, paymentOffer.id()
-//        );
-//        String message = "You have exceeded the allowed payment limit. Please complete the OTP verification by following this link: " + continuePaymentLink;
-//        return PaymentResult.requiresOtp(message);
-//    }
 
     @Transactional
     public UUID createTransaction(UUID userId, PaymentOfferEntity paymentOfferEntity, String cardNumber) {

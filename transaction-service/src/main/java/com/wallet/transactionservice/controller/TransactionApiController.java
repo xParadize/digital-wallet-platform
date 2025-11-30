@@ -33,7 +33,7 @@ public class TransactionApiController {
     }
 
     @PostMapping("/{offer_id}")
-    public ResponseEntity<HttpStatus> initiateTransaction(@PathVariable("offer_id") String offerId,
+    public ResponseEntity<ApiResponse> initiateTransaction(@PathVariable("offer_id") String offerId,
                                                           @RequestBody @Valid PaymentRequestDto paymentRequestDto,
                                                           BindingResult bindingResult,
                                                           @RequestHeader("Authorization") String authorizationHeader) {
@@ -44,11 +44,11 @@ public class TransactionApiController {
 
         PaymentResult paymentResult = paymentOrchestrator.processPayment(userId, offerId, paymentRequestDto);
 
-//        if (paymentResult.requiresOtp()) {
-//            return new ResponseEntity<>(new ApiResponse(true, paymentResult.message()), HttpStatus.OK);
-//        }
+        if (paymentResult.requiresOtp()) {
+            return new ResponseEntity<>(new ApiResponse(true, paymentResult.message()), HttpStatus.OK);
+        }
 
-        return ResponseEntity.ok(HttpStatus.OK);
+        return new ResponseEntity<>(new ApiResponse(true,"Payment completed"), HttpStatus.OK);
     }
 
     @PostMapping("/confirm")
