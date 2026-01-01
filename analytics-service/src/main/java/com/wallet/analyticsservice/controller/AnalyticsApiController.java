@@ -20,13 +20,13 @@ import java.util.UUID;
 public class AnalyticsApiController {
     private final AnalyticsService analyticsService;
 
-    @PostMapping("/")
-    public ResponseEntity<String> analyzeExpenses(@RequestBody CategorySpendingReportRequest request) throws IOException, InterruptedException {
-        ExpenseAnalysisReport report = analyticsService.findExpenseReportByCardAndPeriod(request.cardNumber(), request.from(), request.to());
-        if (report == null) {
-            UUID reportId = analyticsService.saveAnalytics(request);
-            return new ResponseEntity<>(analyticsService.getLinkToReport(reportId), HttpStatus.OK);
-        }
-        return new ResponseEntity<>(analyticsService.getLinkToReport(report.getId()), HttpStatus.OK);
-    }
+//    @PostMapping("/")
+//    public ResponseEntity<String> analyzeExpenses(@RequestBody CategorySpendingReportRequest request) throws IOException, InterruptedException {
+//        ExpenseAnalysisReport report = analyticsService.findExpenseReportByCardAndPeriod(request.cardNumber(), request.from(), request.to());
+//        if (report == null) {
+//            UUID reportId = analyticsService.saveAnalytics(request);
+//            return new ResponseEntity<>(analyticsService.getLinkToReport(reportId), HttpStatus.OK);
+//        }
+//        return new ResponseEntity<>(analyticsService.getLinkToReport(report.getId()), HttpStatus.OK);
+//    }
 }

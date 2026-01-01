@@ -51,9 +51,15 @@ public class TransactionApiController {
         return new ResponseEntity<>(new ApiResponse(true,"Payment completed"), HttpStatus.OK);
     }
 
+    @PostMapping("/{transaction_id}/cancel")
+    public ResponseEntity<Void> cancelTransaction(@PathVariable("transaction_id") UUID transactionId) {
+        transactionService.cancelTransaction(transactionId);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/confirm")
     public ResponseEntity<HttpStatus> confirmOtpAndFinalizeTransaction(@RequestBody OtpConfirmRequest req) {
-        transactionService.finishTransactionByUserAndOffer(req.getUserId(), req.getOfferId());
+        transactionService.finishTransactionWithOtp(req.getUserId(), req.getOfferId());
         return ResponseEntity.ok().build();
     }
 
@@ -61,11 +67,6 @@ public class TransactionApiController {
     public List<TransactionDto> getRecentTransactions(@PathVariable("cardId") String cardNumber, @RequestParam("count") int count) {
         return transactionService.getRecentTransactions(cardNumber, count);
     }
-
-//    @GetMapping("/")
-//    public List<TransactionDto> getTransactions(@RequestParam("cardNumber") String cardNumber, @RequestParam("limit") int limit) {
-//        return transactionService.getRecentTransactions(cardNumber, limit);
-//    }
 
     @GetMapping("/cards/last-used")
     public List<String> getLastUsedCardNumbers(@RequestParam("userId") UUID userId,

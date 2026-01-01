@@ -6,7 +6,7 @@ export const options = {
         { duration: '30s', target: 38 },
         { duration: '1m', target: 75 },
         { duration: '2m', target: 150 },
-        { duration: '1m', target: 38 },
+        { duration: '1m', target: 75 },
         { duration: '30s', target: 0 },
     ],
     thresholds: {
@@ -16,7 +16,7 @@ export const options = {
 };
 
 const BASE_URL = 'http://localhost:8991/api/v1';
-const JWT_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IjE1NWI2ZWFkLWZkNDEtNDM3ZC1iNWUwLTY1MjQ0MGU3ZGZjZCIsImVtYWlsIjoiaXZhbW4uc21pdGhAZXhhbXBsZS5jb20iLCJzdWIiOiIxNTViNmVhZC1mZDQxLTQzN2QtYjVlMC02NTI0NDBlN2RmY2QiLCJpYXQiOjE3NjMyOTY4MjYsImV4cCI6MTc2MzkwMTYyNn0.Q_ziy3PqmMPjXi-32c5AmEoD4NVUUJ4T_nQY29TtraE';
+const JWT_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IjE1NWI2ZWFkLWZkNDEtNDM3ZC1iNWUwLTY1MjQ0MGU3ZGZjZCIsImVtYWlsIjoiaXZhbW4uc21pdGhAZXhhbXBsZS5jb20iLCJzdWIiOiIxNTViNmVhZC1mZDQxLTQzN2QtYjVlMC02NTI0NDBlN2RmY2QiLCJpYXQiOjE3NjU0NjY4MjMsImV4cCI6MTc2NjA3MTYyM30.v8pj068rh87Xt_lmF6IU3mdgh5pnv-_FK8JTfk3kELI';
 const USER_ID = '155b6ead-fd41-437d-b5e0-652440e7dfcd';
 
 const CARD_IDS = Array.from({ length: 50 }, (_, i) => i + 1);

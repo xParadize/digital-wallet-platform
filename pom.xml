@@ -16,6 +16,7 @@
         <module>analytics-service</module>
         <module>eureka-server</module>
         <module>api-gateway</module>
+        <module>metrics-service</module>
     </modules>
     <properties>
         <java.version>17</java.version>

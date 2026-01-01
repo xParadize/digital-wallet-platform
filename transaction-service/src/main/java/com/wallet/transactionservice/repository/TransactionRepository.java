@@ -24,6 +24,13 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
             "WHERE t.id = :id")
     Optional<Transaction> findByIdWithOffer(@Param("id") UUID id);
 
+    @Query("SELECT t FROM Transaction t " +
+            "JOIN t.offer o " +
+            "WHERE t.userId = :userId " +
+            "AND o.id = :offerId " +
+            "AND t.status = 'PENDING'")
+    Optional<Transaction> findPendingTransaction(@Param("userId") UUID userId, @Param("offerId") String offerId);
+
     Optional<Transaction> findByUserIdAndOfferIdAndStatus(UUID userId, String offerId, TransactionStatus status);
     List<Transaction> findAllByCardNumberAndConfirmedAtBetween(String cardNumber, Instant confirmedAtAfter, Instant confirmedAtBefore);
     List<Transaction> findAllByCardNumberAndConfirmedAtBetween(String cardNumber, Instant confirmedAtAfter, Instant confirmedAtBefore, Pageable pageable);

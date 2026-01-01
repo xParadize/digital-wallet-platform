@@ -98,3 +98,7 @@ security:
 
 transaction:
   per-page: ${TRANSACTIONS_PER_PAGE}
+  outbox:
+    topic: transaction.events
+    scheduler:
+      delay-ms: 30000
