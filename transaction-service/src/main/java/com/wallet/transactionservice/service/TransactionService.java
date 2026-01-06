@@ -92,7 +92,6 @@ public class TransactionService {
             throw new RuntimeException("Failed to serialize transaction successful event", e);
         }
 
-        cacheService.removeOffer(paymentOfferEntity.getId());
         return successfulTransaction;
     }
 
@@ -100,13 +99,18 @@ public class TransactionService {
     public void cancelTransaction(UUID transactionId) {
         Transaction transaction = getTransaction(transactionId);
         transaction.setStatus(TransactionStatus.CANCELLED);
+        transaction.setCancelledAt(Instant.now());
         transactionRepository.save(transaction);
 
+        paymentOfferEntityService.returnOffer(transaction.getOffer());
+
         try {
-            String eventPayload = objectMapper.writeValueAsString(transaction);
+            TransactionEvent cancelledTransaction = transactionMapper.toEvent(transaction);
+            String eventPayload = objectMapper.writeValueAsString(cancelledTransaction);
             OutboxEvent event = OutboxEvent.builder()
                     .eventType(TransactionEventType.TRANSACTION_CANCELLED.toString())
                     .payload(eventPayload)
+                    .createdAt(Instant.now())
                     .build();
             outboxRepository.save(event);
         } catch (JsonProcessingException e) {
@@ -120,11 +124,15 @@ public class TransactionService {
         transaction.setStatus(TransactionStatus.FAILED);
         transactionRepository.save(transaction);
 
+        paymentOfferEntityService.returnOffer(transaction.getOffer());
+
         try {
-            String eventPayload = objectMapper.writeValueAsString(transaction);
+            TransactionEvent failedTransaction = transactionMapper.toEvent(transaction);
+            String eventPayload = objectMapper.writeValueAsString(failedTransaction);
             OutboxEvent event = OutboxEvent.builder()
                     .eventType(TransactionEventType.TRANSACTION_FAILED.toString())
                     .payload(eventPayload)
+                    .createdAt(Instant.now())
                     .build();
             outboxRepository.save(event);
         } catch (JsonProcessingException e) {

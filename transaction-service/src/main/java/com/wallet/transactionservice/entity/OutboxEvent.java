@@ -24,5 +24,5 @@ public class OutboxEvent {
     private String payload;
 
     @Column
-    private Instant createdAt = Instant.now();
+    private Instant createdAt;
 }

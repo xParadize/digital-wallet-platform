@@ -34,6 +34,8 @@ public class PaymentOrchestrator {
 
         Transaction transaction = transactionService.createTransaction(userId, savedOffer, paymentRequest.getCardNumber());
 
+        cacheService.removeOffer(savedOffer.getId());
+
         if (shouldRequireOtpVerification(cardInfo.getLimit(), paymentOffer)) {
             return handleOtpVerification(userId, paymentOffer);
         }

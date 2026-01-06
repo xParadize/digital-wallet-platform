@@ -102,3 +102,6 @@ transaction:
     topic: transaction.events
     scheduler:
       delay-ms: 30000
+  scheduler:
+    pending-cleanup:
+      delay-ms: 30000
