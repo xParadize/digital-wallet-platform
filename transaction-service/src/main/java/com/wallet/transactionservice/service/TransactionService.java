@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wallet.transactionservice.dto.TransactionDto;
 import com.wallet.transactionservice.dto.TransactionEvent;
+import com.wallet.transactionservice.dto.TransactionInfoDto;
 import com.wallet.transactionservice.entity.OutboxEvent;
 import com.wallet.transactionservice.entity.PaymentOfferEntity;
 import com.wallet.transactionservice.entity.Transaction;
@@ -41,6 +42,13 @@ public class TransactionService {
     public Transaction getTransaction(UUID transactionId) {
         return transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new TransactionNotFoundException("Transaction not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public TransactionInfoDto getTransactionInfo(UUID transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found"));
+        return transactionMapper.toInfo(transaction);
     }
 
     @Transactional

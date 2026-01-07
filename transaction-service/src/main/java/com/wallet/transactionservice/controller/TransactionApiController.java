@@ -32,6 +32,11 @@ public class TransactionApiController {
         throw new IncorrectSearchPath();
     }
 
+    @GetMapping("/{transaction_id}")
+    public TransactionInfoDto getTransaction(@PathVariable("transaction_id") String transactionId) {
+        return transactionService.getTransactionInfo(UUID.fromString(transactionId));
+    }
+
     @PostMapping("/{offer_id}")
     public ResponseEntity<ApiResponse> initiateTransaction(@PathVariable("offer_id") String offerId,
                                                           @RequestBody @Valid PaymentRequestDto paymentRequestDto,
