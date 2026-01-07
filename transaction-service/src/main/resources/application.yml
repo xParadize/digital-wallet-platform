@@ -105,3 +105,8 @@ transaction:
   scheduler:
     pending-cleanup:
       delay-ms: 30000
+  commission:
+    transfer-threshold: 500000
+    fee:
+      cap: 1000000
+      rate: 0.01

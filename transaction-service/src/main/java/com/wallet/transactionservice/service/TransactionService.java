@@ -35,7 +35,7 @@ public class TransactionService {
     private final TransactionMapper transactionMapper;
     private final ObjectMapper objectMapper;
     private final OutboxRepository outboxRepository;
-    private final CacheService cacheService;
+    private final FeeService feeService;
 
     @Transactional(readOnly = true)
     public Transaction getTransaction(UUID transactionId) {
@@ -45,13 +45,18 @@ public class TransactionService {
 
     @Transactional
     public Transaction createTransaction(UUID userId, PaymentOfferEntity paymentOfferEntity, String cardNumber) {
-        BigDecimal signedAmount = paymentOfferEntity.getCategory().applySign(paymentOfferEntity.getAmount());
+        BigDecimal amount = paymentOfferEntity.getAmount();
+        BigDecimal finalAmount = feeService.applyTransferFee(amount);
+        BigDecimal fee = finalAmount.subtract(amount).abs();
+        BigDecimal signedAmount = paymentOfferEntity.getCategory().applySign(finalAmount);
+
         Transaction transaction = Transaction.builder()
                 .userId(userId)
                 .offer(paymentOfferEntity)
                 .status(TransactionStatus.PENDING)
                 .cardType(CardType.DEBIT)
                 .cardNumber(cardNumber)
+                .fee(fee)
                 .amount(signedAmount)
                 .createdAt(Instant.now())
                 .build();
@@ -270,8 +275,4 @@ public class TransactionService {
                 .toList();
     }
 
-    public Transaction findPendingTransaction(UUID userId, String offerId) {
-        return transactionRepository.findPendingTransaction(userId, offerId)
-                .orElseThrow(() -> new TransactionNotFoundException("Pending transaction not found"));
-    }
 }

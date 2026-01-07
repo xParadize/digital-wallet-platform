@@ -42,6 +42,9 @@ public class Transaction {
     private CardType cardType;
 
     @Column
+    private BigDecimal fee;
+
+    @Column
     private BigDecimal amount;
 
     @Column
