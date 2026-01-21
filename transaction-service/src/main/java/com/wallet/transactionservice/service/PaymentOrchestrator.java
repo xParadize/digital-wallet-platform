@@ -2,12 +2,15 @@ package com.wallet.transactionservice.service;
 
 import com.wallet.transactionservice.dto.*;
 import com.wallet.transactionservice.entity.PaymentOfferEntity;
+import com.wallet.transactionservice.entity.Transaction;
+import com.wallet.transactionservice.exception.PaymentFailedException;
 import com.wallet.transactionservice.feign.CardFeignClient;
 import com.wallet.transactionservice.mapper.PaymentOfferMapper;
 import com.wallet.transactionservice.util.PaymentValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
@@ -23,22 +26,43 @@ public class PaymentOrchestrator {
 
     public PaymentResult processPayment(UUID userId, String offerId, PaymentRequestDto paymentRequest) {
         PaymentOffer paymentOffer = cacheService.getPaymentOfferById(offerId);
-
         CardInfoDto cardInfo = cardFeignClient.getCardByNumber(paymentRequest.getCardNumber());
         paymentValidator.validatePayment(paymentRequest, cardInfo, userId, paymentOffer);
 
         PaymentOfferEntity paymentOfferEntity = paymentOfferMapper.toEntity(paymentOffer);
         PaymentOfferEntity savedOffer = paymentOfferEntityService.save(paymentOfferEntity);
 
-        UUID transactionId = transactionService.createTransaction(userId, savedOffer, paymentRequest.getCardNumber());
+        Transaction transaction = transactionService.createTransaction(userId, savedOffer, paymentRequest.getCardNumber());
+
+        cacheService.removeOffer(savedOffer.getId());
 
         if (shouldRequireOtpVerification(cardInfo.getLimit(), paymentOffer)) {
             return handleOtpVerification(userId, paymentOffer);
         }
 
-        transactionService.finishTransactionById(transactionId);
+        executeFinancialTransaction(transaction, paymentOffer.amount().value());
 
         return PaymentResult.success();
+    }
+
+    public void executeFinancialTransaction(Transaction transaction, BigDecimal amount) {
+        try {
+            cardFeignClient.createPayment(
+                    transaction.getCardNumber(),
+                    transaction.getUserId(),
+                    amount
+            );
+        } catch (Exception e) {
+            transactionService.failTransaction(transaction.getId());
+            throw new PaymentFailedException("Payment failed", e);
+        }
+
+        try {
+            transactionService.finishTransaction(transaction.getId());
+        } catch (Exception e) {
+            // todo: возврат средств
+            throw e;
+        }
     }
 
     private boolean shouldRequireOtpVerification(LimitDto limitDto, PaymentOffer paymentOffer) {

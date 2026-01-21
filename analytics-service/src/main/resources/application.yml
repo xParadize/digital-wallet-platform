@@ -25,18 +25,13 @@ spring:
     name: analytics-service
   config:
     import: optional:file:.env[.properties]
+  liquibase:
+    enabled: false
   datasource:
-    username: ${POSTGRES_USERNAME}
-    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_ANALYTICS_SERVICE_DB}
-    password: ${POSTGRES_PASSWORD}
-  jpa:
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: false
-    hibernate:
-      ddl-auto: none
-    show-sql: false
+    driver-class-name: com.clickhouse.jdbc.ClickHouseDriver
+    url: jdbc:clickhouse://${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}/${CLICKHOUSE_ANALYTICS_SERVICE_DB}?compress=0
+    username: ${CLICKHOUSE_USER}
+    password: ${CLICKHOUSE_PASSWORD}
   cloud:
     openfeign:
       micrometer:

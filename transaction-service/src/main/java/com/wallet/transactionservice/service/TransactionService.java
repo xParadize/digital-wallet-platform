@@ -1,16 +1,21 @@
 package com.wallet.transactionservice.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wallet.transactionservice.dto.TransactionDto;
+import com.wallet.transactionservice.dto.TransactionEvent;
+import com.wallet.transactionservice.dto.TransactionInfoDto;
+import com.wallet.transactionservice.entity.OutboxEvent;
 import com.wallet.transactionservice.entity.PaymentOfferEntity;
 import com.wallet.transactionservice.entity.Transaction;
 import com.wallet.transactionservice.enums.CardType;
+import com.wallet.transactionservice.enums.TransactionEventType;
 import com.wallet.transactionservice.enums.TransactionStatus;
 import com.wallet.transactionservice.exception.TransactionNotFoundException;
-import com.wallet.transactionservice.feign.CardFeignClient;
 import com.wallet.transactionservice.mapper.TransactionMapper;
+import com.wallet.transactionservice.repository.OutboxRepository;
 import com.wallet.transactionservice.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -26,63 +31,126 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
-    private final CacheService cacheService;
     private final TransactionRepository transactionRepository;
-    private final CardFeignClient cardFeignClient;
     private final PaymentOfferEntityService paymentOfferEntityService;
     private final TransactionMapper transactionMapper;
+    private final ObjectMapper objectMapper;
+    private final OutboxRepository outboxRepository;
+    private final FeeService feeService;
 
-    @Value("${transaction.per-page}")
-    private int transactionsPerPage;
+    @Transactional(readOnly = true)
+    public Transaction getTransaction(UUID transactionId) {
+        return transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public TransactionInfoDto getTransactionInfo(UUID transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found"));
+        return transactionMapper.toInfo(transaction);
+    }
 
     @Transactional
-    public UUID createTransaction(UUID userId, PaymentOfferEntity paymentOfferEntity, String cardNumber) {
-        BigDecimal signedAmount = paymentOfferEntity.getCategory().applySign(paymentOfferEntity.getAmount());
+    public Transaction createTransaction(UUID userId, PaymentOfferEntity paymentOfferEntity, String cardNumber) {
+        BigDecimal amount = paymentOfferEntity.getAmount();
+        BigDecimal finalAmount = feeService.applyTransferFee(amount);
+        BigDecimal fee = finalAmount.subtract(amount).abs();
+        BigDecimal signedAmount = paymentOfferEntity.getCategory().applySign(finalAmount);
+
         Transaction transaction = Transaction.builder()
                 .userId(userId)
                 .offer(paymentOfferEntity)
                 .status(TransactionStatus.PENDING)
                 .cardType(CardType.DEBIT)
                 .cardNumber(cardNumber)
+                .fee(fee)
                 .amount(signedAmount)
                 .createdAt(Instant.now())
                 .build();
-        Transaction savedTransaction = transactionRepository.save(transaction);
-        return savedTransaction.getId();
+        return transactionRepository.save(transaction);
     }
 
     @Transactional
-    public void finishTransactionById(UUID transactionId) {
-        Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found"));
-        PaymentOfferEntity paymentOfferEntity = transaction.getOffer();
-        finishTransactionInternal(transaction, paymentOfferEntity);
-    }
-
-    @Transactional
-    public void finishTransactionByUserAndOffer(UUID userId, String offerId) {
-        Transaction transaction = transactionRepository.findByUserIdAndOfferIdAndStatus(
+    public void finishTransactionWithOtp(UUID userId, String offerId) {
+        Transaction pendingTransaction = transactionRepository.findByUserIdAndOfferIdAndStatus(
                         userId, offerId, TransactionStatus.PENDING)
                 .orElseThrow(() -> new TransactionNotFoundException("Pending transaction not found"));
-        PaymentOfferEntity paymentOfferEntity = transaction.getOffer();
-        finishTransactionInternal(transaction, paymentOfferEntity);
+        finishTransaction(pendingTransaction.getId());
     }
 
-    private void finishTransactionInternal(Transaction transaction, PaymentOfferEntity paymentOfferEntity) {
-        cardFeignClient.createPayment(
-                transaction.getCardNumber(),
-                transaction.getUserId(),
-                paymentOfferEntity.getAmount()
-        );
-        cacheService.removeOffer(paymentOfferEntity.getId());
+    @Transactional
+    public Transaction finishTransaction(UUID transactionId) {
+        Transaction transaction = getTransaction(transactionId);
+        PaymentOfferEntity paymentOfferEntity = transaction.getOffer();
 
         transaction.setStatus(TransactionStatus.CONFIRMED);
         transaction.setConfirmedAt(Instant.now());
-
         paymentOfferEntity.setCompletedAt(Instant.now());
 
         paymentOfferEntityService.save(paymentOfferEntity);
+
+        Transaction successfulTransaction = transactionRepository.save(transaction);
+
+        try {
+            TransactionEvent transactionEvent = transactionMapper.toEvent(successfulTransaction);
+            String eventPayload = objectMapper.writeValueAsString(transactionEvent);
+            OutboxEvent outboxEvent = OutboxEvent.builder()
+                    .eventType(TransactionEventType.TRANSACTION_SUCCESSFUL.toString())
+                    .payload(eventPayload)
+                    .createdAt(Instant.now())
+                    .build();
+            outboxRepository.save(outboxEvent);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize transaction successful event", e);
+        }
+
+        return successfulTransaction;
+    }
+
+    @Transactional
+    public void cancelTransaction(UUID transactionId) {
+        Transaction transaction = getTransaction(transactionId);
+        transaction.setStatus(TransactionStatus.CANCELLED);
+        transaction.setCancelledAt(Instant.now());
         transactionRepository.save(transaction);
+
+        paymentOfferEntityService.returnOffer(transaction.getOffer());
+
+        try {
+            TransactionEvent cancelledTransaction = transactionMapper.toEvent(transaction);
+            String eventPayload = objectMapper.writeValueAsString(cancelledTransaction);
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType(TransactionEventType.TRANSACTION_CANCELLED.toString())
+                    .payload(eventPayload)
+                    .createdAt(Instant.now())
+                    .build();
+            outboxRepository.save(event);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize transaction cancelled event", e);
+        }
+    }
+
+    @Transactional
+    public void failTransaction(UUID transactionId) {
+        Transaction transaction = getTransaction(transactionId);
+        transaction.setStatus(TransactionStatus.FAILED);
+        transactionRepository.save(transaction);
+
+        paymentOfferEntityService.returnOffer(transaction.getOffer());
+
+        try {
+            TransactionEvent failedTransaction = transactionMapper.toEvent(transaction);
+            String eventPayload = objectMapper.writeValueAsString(failedTransaction);
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType(TransactionEventType.TRANSACTION_FAILED.toString())
+                    .payload(eventPayload)
+                    .createdAt(Instant.now())
+                    .build();
+            outboxRepository.save(event);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize transaction failed event", e);
+        }
     }
 
 //    public void validateUserCardAccessWithDate(String cardNumber, UUID userId,  LocalDate from, LocalDate to) {
@@ -214,4 +282,5 @@ public class TransactionService {
                 .distinct()
                 .toList();
     }
+
 }
