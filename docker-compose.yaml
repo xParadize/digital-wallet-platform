@@ -111,7 +111,7 @@ services:
     container_name: "kafka-1"
     env_file:
       - .env
-    image: bitnami/kafka:latest
+    image: bitnamilegacy/kafka:latest
     ports:
       - "9092:9092"
     restart: unless-stopped
@@ -133,7 +133,7 @@ services:
     container_name: "kafka-2"
     env_file:
       - .env
-    image: bitnami/kafka:latest
+    image: bitnamilegacy/kafka:latest
     ports:
       - "9094:9094"
     restart: unless-stopped
@@ -155,7 +155,7 @@ services:
     container_name: "kafka-3"
     env_file:
       - .env
-    image: bitnami/kafka:latest
+    image: bitnamilegacy/kafka:latest
     ports:
       - "9096:9096"
     restart: unless-stopped

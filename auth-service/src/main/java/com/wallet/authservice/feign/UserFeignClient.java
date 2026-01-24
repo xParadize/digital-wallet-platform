@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(name = "${digital-wallet-platform.services.user-service.uri}")
 public interface UserFeignClient {
 
-    @PostMapping("/api/v1/user")
+    @PostMapping("/api/v1/users")
     ResponseEntity<HttpStatus> saveUser(@RequestBody UnverifiedUser unverifiedUser);
 
-    @GetMapping("/api/v1/user/exists")
+    @GetMapping("/api/v1/users/exists")
     boolean existsByEmailOrPhone(@RequestParam("email") String email, @RequestParam("phone") String phone);
 }
