@@ -1,10 +1,10 @@
 --liquibase formatted sql
 
 --changeset sromanov:1
-DROP TABLE IF EXISTS limit_;
+DROP TABLE IF EXISTS limit_ CASCADE;
 
 --changeset sromanov:2
-DROP TABLE IF EXISTS card_;
+DROP TABLE IF EXISTS card_ CASCADE;
 
 --changeset sromanov:3
 CREATE TABLE IF NOT EXISTS card_ (
