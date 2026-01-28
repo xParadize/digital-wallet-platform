@@ -47,23 +47,9 @@ public class NotificationService {
     }
 
     @Transactional
-    @KafkaListener(topics = "card.frozen", groupId = "digital-wallet-card")
-    public void consumeCardFrozen(String message) throws JsonProcessingException {
-        CardFrozenEvent event = objectMapper.readValue(message, CardFrozenEvent.class);
-        mailSenderService.sendCardFrozen(event);
-    }
-
-    @Transactional
-    @KafkaListener(topics = "card.unfrozen", groupId = "digital-wallet-card")
-    public void consumeCardUnfrozen(String message) throws JsonProcessingException {
-        CardUnfrozenEvent event = objectMapper.readValue(message, CardUnfrozenEvent.class);
-        mailSenderService.sendCardUnfrozen(event);
-    }
-
-    @Transactional
-    @KafkaListener(topics = "card.blocked", groupId = "digital-wallet-card")
-    public void consumeCardBlocked(String message) throws JsonProcessingException {
-        CardBlockedEvent event = objectMapper.readValue(message, CardBlockedEvent.class);
-        mailSenderService.sendCardBlocked(event);
+    @KafkaListener(topics = "card.status", groupId = "digital-wallet-card")
+    public void consumeCardStatusChanged(String message) throws JsonProcessingException {
+        CardStatusChangedEvent event = objectMapper.readValue(message, CardStatusChangedEvent.class);
+        mailSenderService.sendCardStatusChanged(event);
     }
 }

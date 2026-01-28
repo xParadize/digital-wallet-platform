@@ -29,6 +29,14 @@ spring:
     username: ${POSTGRES_USERNAME}
     url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_CARD_SERVICE_DB}
     password: ${POSTGRES_PASSWORD}
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 30000
+      max-lifetime: 600000
+  cache:
+    type: redis
   jpa:
     properties:
       hibernate:
@@ -39,6 +47,12 @@ spring:
     show-sql: false
   cloud:
     openfeign:
+      micrometer:
+        enabled: true
+      client:
+        config:
+          default:
+            logger-level: basic
       okhttp:
         enabled: true
 
@@ -48,13 +62,53 @@ eureka:
       defaultZone: http://${EUREKA_HOST}:${EUREKA_PORT}/eureka/
     register-with-eureka: true
     fetch-registry: true
+    registry-fetch-interval-seconds: ${EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL}
   instance:
-    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: ${EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL}
+    lease-expiration-duration-in-seconds: ${EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION}
+    hostname: ${EUREKA_INSTANCE_HOSTNAME}
+    prefer-ip-address: false
+    ip-address: ${EUREKA_INSTANCE_IP_ADDRESS}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: 'prometheus,health,info'
+  tracing:
+    sampling:
+      probability: ${TRACING_PROBABILITY}
+    propagation:
+      type: b3
+    baggage:
+      enabled: true
+      remote-fields: service-instance, service-port
+    enabled: true
+    include-eureka-healthcheck: false
+  zipkin:
+    tracing:
+      endpoint: http://${ZIPKIN_HOST}:${ZIPKIN_PORT}/api/v2/spans
+      export:
+        enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name}] [port:${server.port}]"
 
 security:
   jwt:
     secret: ${JWT_SECRET}
-    expirationMs: 604800000 # 1 week
+    expirationMs: ${JWT_EXPIRATION_TIME_MS}
 
 payment:
   limits:

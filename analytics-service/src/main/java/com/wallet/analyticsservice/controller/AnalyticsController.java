@@ -27,18 +27,18 @@ public class AnalyticsController {
         throw new IncorrectSearchPath();
     }
 
-    @GetMapping("/{report_id}")
-    public String getExpenseReport(@PathVariable("report_id") @NotNull UUID reportId,
-                                   @RequestHeader("Authorization") String authorizationHeader) {
-        String jwt = extractJwtFromHeader(authorizationHeader);
-        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-
-        ExpenseAnalysisReport expenseAnalysis = analyticsService.getExpenseReportById(reportId);
-
-        analyticsRequestsValidator.validateUserCardAccess(expenseAnalysis.getCardNumber(), userId);
-
-        return expenseAnalysis.getReport();
-    }
+//    @GetMapping("/{report_id}")
+//    public String getExpenseReport(@PathVariable("report_id") @NotNull UUID reportId,
+//                                   @RequestHeader("Authorization") String authorizationHeader) {
+//        String jwt = extractJwtFromHeader(authorizationHeader);
+//        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+//
+//        ExpenseAnalysisReport expenseAnalysis = analyticsService.getExpenseReportById(reportId);
+//
+//        analyticsRequestsValidator.validateUserCardAccess(expenseAnalysis.getCardNumber(), userId);
+//
+//        return expenseAnalysis.getReport();
+//    }
 
     private String extractJwtFromHeader(String authorizationHeader) {
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {

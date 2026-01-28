@@ -1,5 +1,6 @@
 package com.wallet.cardservice.entity;
 
+import com.wallet.cardservice.enums.CardStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -24,31 +25,19 @@ public class Card {
     private UUID userId;
 
     @Column
-    private String number;
+    private BigDecimal balance;
 
     @Column
-    private String expirationDate;
+    @Enumerated(value = EnumType.STRING)
+    private CardStatus status;
 
-    @Column
-    private String cvv;
+    @OneToOne(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
+    private CardDetails cardDetails;
 
-    @Column
-    private String cardScheme;
+    @OneToOne(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
+    private CardMetadata cardMetadata;
 
-    @Column
-    private String cardIssuer;
-
-    @Column
-    private BigDecimal money;
-
-    @Column
-    private boolean frozen;
-
-    @Column
-    private boolean blocked;
-
-    @OneToOne(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    @JoinColumn(name = "limit_id", referencedColumnName = "id", unique = true)
+    @OneToOne(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
     private Limit limit;
 
     @Override
@@ -72,13 +61,7 @@ public class Card {
         return getClass().getSimpleName() + "(" +
                 "id = " + id + ", " +
                 "userId = " + userId + ", " +
-                "number = " + number + ", " +
-                "expirationDate = " + expirationDate + ", " +
-                "cvv = " + cvv + ", " +
-                "cardScheme = " + cardScheme + ", " +
-                "cardIssuer = " + cardIssuer + ", " +
-                "money = " + money + ", " +
-                "frozen = " + frozen + ", " +
-                "blocked = " + blocked + ")";
+                "balance = " + balance + ", " +
+                "status = " + status + ")";
     }
 }

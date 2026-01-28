@@ -4,5 +4,4 @@ public record CardMeta(
         String scheme,
         String issuer)
 {
-
 }

@@ -100,6 +100,18 @@ public class TransactionControllerAdvice {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
+    @ExceptionHandler(FieldValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ValidationErrorResponse> handleFieldValidationException(FieldValidationException e) {
+        ValidationErrorResponse errorResponse = new ValidationErrorResponse(
+                false,
+                e.getMessage(),
+                e.getErrors(),
+                Instant.now()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<ValidationErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
@@ -134,6 +146,13 @@ public class TransactionControllerAdvice {
     public ResponseEntity<ApiResponse> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException e) {
         ApiResponse response = new ApiResponse(false, e.getMessage());
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(FeeException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ResponseEntity<ApiResponse> handleFeeException(FeeException e) {
+        ApiResponse response = new ApiResponse(false, e.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(FeignException.BadRequest.class)

@@ -25,20 +25,21 @@ spring:
     name: analytics-service
   config:
     import: optional:file:.env[.properties]
+  liquibase:
+    enabled: false
   datasource:
-    username: ${POSTGRES_USERNAME}
-    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_ANALYTICS_SERVICE_DB}
-    password: ${POSTGRES_PASSWORD}
-  jpa:
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: false
-    hibernate:
-      ddl-auto: none
-    show-sql: false
+    driver-class-name: com.clickhouse.jdbc.ClickHouseDriver
+    url: jdbc:clickhouse://${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}/${CLICKHOUSE_ANALYTICS_SERVICE_DB}?compress=0
+    username: ${CLICKHOUSE_USER}
+    password: ${CLICKHOUSE_PASSWORD}
   cloud:
     openfeign:
+      micrometer:
+        enabled: true
+      client:
+        config:
+          default:
+            logger-level: basic
       okhttp:
         enabled: true
 
@@ -48,10 +49,40 @@ eureka:
       defaultZone: http://${EUREKA_HOST}:${EUREKA_PORT}/eureka/
     register-with-eureka: true
     fetch-registry: true
+    registry-fetch-interval-seconds: ${EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL}
   instance:
-    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: ${EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL}
+    lease-expiration-duration-in-seconds: ${EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION}
+    hostname: ${EUREKA_INSTANCE_HOSTNAME}
+    prefer-ip-address: false
+    ip-address: ${EUREKA_INSTANCE_IP_ADDRESS}
+
+management:
+  tracing:
+    sampling:
+      probability: ${TRACING_PROBABILITY}
+    propagation:
+      type: b3
+    baggage:
+      enabled: true
+      remote-fields: service-instance, service-port
+    enabled: true
+    include-eureka-healthcheck: false
+  zipkin:
+    tracing:
+      endpoint: http://${ZIPKIN_HOST}:${ZIPKIN_PORT}/api/v2/spans
+      export:
+        enabled: true
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name}] [port:${server.port}]"
 
 security:
   jwt:
     secret: ${JWT_SECRET}
-    expirationMs: 604800000 # 1 week
+    expirationMs: ${JWT_EXPIRATION_TIME_MS}
+
+ai:
+  api-key: ${AI_API_KEY}
+  base-url: ${AI_BASE_URL}

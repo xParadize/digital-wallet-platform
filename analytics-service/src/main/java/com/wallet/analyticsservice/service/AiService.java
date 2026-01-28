@@ -18,10 +18,10 @@ import java.util.Map;
 public class AiService {
     private final ObjectMapper mapper = new ObjectMapper();
 
-    @Value("${spring.ai.openai.api-key}")
+    @Value("${ai.api-key}")
     private String API_KEY;
 
-    @Value("${spring.ai.openai.base-url}")
+    @Value("${ai.base-url}")
     private String BASE_URL;
 
     public String generateSpendingAnalysis(List<CategorySpending> categorySpendingList) throws IOException, InterruptedException {
@@ -54,11 +54,9 @@ public class AiService {
             Входные данные: %s.
             """, jsonData);
 
-
         Map<String, Object> requestMap = Map.of(
-                "model", "gpt-4o",
+                "model", "zai-org/GLM-4.7-Flash:novita",
                 "messages", List.of(
-                        Map.of("role", "system", "content", "You are a helpful AI Assistant"),
                         Map.of("role", "user", "content", prompt)
                 )
         );

@@ -10,9 +10,7 @@ import java.util.UUID;
 @Setter
 public class SaveCardDto {
     private String number;
-    private UUID userId;
     private String expirationDate;
     private String cvv;
     private BigDecimal money;
-    private String email;
 }

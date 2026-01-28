@@ -10,4 +10,5 @@ import org.mapstruct.ReportingPolicy;
         componentModel = MappingConstants.ComponentModel.SPRING)
 public interface HolderMapper {
     Holder toEntity(HolderDto holderDto);
+    HolderDto toDto(Holder holder);
 }

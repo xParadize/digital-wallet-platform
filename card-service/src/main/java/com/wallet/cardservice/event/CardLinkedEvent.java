@@ -11,5 +11,4 @@ public record CardLinkedEvent(
         String cardScheme,
         Instant linkedAt
 ) {
-
 }

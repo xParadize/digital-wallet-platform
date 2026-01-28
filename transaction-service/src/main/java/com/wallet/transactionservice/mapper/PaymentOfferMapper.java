@@ -14,4 +14,11 @@ public interface PaymentOfferMapper {
     @Mapping(source = "location.latitude", target = "latitude")
     @Mapping(source = "location.longitude", target = "longitude")
     PaymentOfferEntity toEntity(PaymentOffer paymentOffer);
+
+    @Mapping(source = "amount", target = "amount.value")
+    @Mapping(source = "currency", target = "amount.currency")
+    @Mapping(source = "vendor", target = "location.vendor")
+    @Mapping(source = "latitude", target = "location.latitude")
+    @Mapping(source = "longitude", target = "location.longitude")
+    PaymentOffer toDto(PaymentOfferEntity paymentOffer);
 }

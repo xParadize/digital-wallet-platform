@@ -1,12 +1,11 @@
 package com.wallet.cardservice.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Objects;
 
 @Entity
@@ -19,18 +18,27 @@ import java.util.Objects;
 public class Limit {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @JsonIgnore
     private Long id;
 
-    @Column
-    private BigDecimal perTransactionLimit;
-
-    @Column
-    private boolean limitEnabled;
-
-    @JsonIgnoreProperties
-    @OneToOne(mappedBy = "limit")
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "card_id", referencedColumnName = "id")
     private Card card;
+
+    @Column
+    private BigDecimal limitAmount;
+
+    @Column
+    private Instant setAt;
+
+    @Column
+    private Instant removedAt;
+
+    @PrePersist
+    private void initSetAt() {
+        if (setAt == null) {
+            setAt = Instant.now();
+        }
+    }
 
     @Override
     public final boolean equals(Object o) {
@@ -52,8 +60,9 @@ public class Limit {
     public String toString() {
         return getClass().getSimpleName() + "(" +
                 "id = " + id + ", " +
-                "perTransactionLimit = " + perTransactionLimit + ", " +
-                "limitEnabled = " + limitEnabled + ", " +
-                "card = " + card + ")";
+                "card = " + card + ", " +
+                "limitAmount = " + limitAmount + ", " +
+                "setAt = " + setAt + ", " +
+                "removedAt = " + removedAt + ")";
     }
 }

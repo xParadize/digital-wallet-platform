@@ -67,7 +67,7 @@
         <h1>Email Confirmation</h1>
     </div>
     <p>Hello, ${name}! To complete your registration, please follow the link below:</p>
-    <p><a href="http://localhost:8001/auth/confirm-email/${code}" class="button">Confirm Email</a></p>
+    <p><a href="http://localhost:8991/api/v1/auth/confirm-email/${code}" class="button">Confirm Email</a></p>
     <div id="footer">
         <p>If you have any questions or need assistance, please contact our support team via email:</p>
         <p class="support-email">support@wallet.com</p>

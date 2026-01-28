@@ -1,0 +1,2 @@
+ALTER TABLE card_details
+    ALTER COLUMN cvv TYPE VARCHAR(3) USING cvv::VARCHAR(3);

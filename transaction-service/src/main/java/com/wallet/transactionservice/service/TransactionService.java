@@ -1,21 +1,25 @@
 package com.wallet.transactionservice.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wallet.transactionservice.dto.*;
+import com.wallet.transactionservice.entity.OutboxEvent;
 import com.wallet.transactionservice.entity.PaymentOfferEntity;
 import com.wallet.transactionservice.entity.Transaction;
 import com.wallet.transactionservice.enums.CardType;
-import com.wallet.transactionservice.enums.TransactionCategory;
+import com.wallet.transactionservice.enums.TransactionEventType;
 import com.wallet.transactionservice.enums.TransactionStatus;
 import com.wallet.transactionservice.exception.TransactionNotFoundException;
 import com.wallet.transactionservice.feign.AnalyticsFeignClient;
 import com.wallet.transactionservice.feign.CardFeignClient;
-import com.wallet.transactionservice.mapper.PaymentOfferMapper;
 import com.wallet.transactionservice.mapper.TransactionMapper;
+import com.wallet.transactionservice.repository.OutboxRepository;
 import com.wallet.transactionservice.repository.TransactionRepository;
 import com.wallet.transactionservice.util.DateConverter;
 import com.wallet.transactionservice.util.LocalDateValidator;
 import com.wallet.transactionservice.util.PaymentValidator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.PageRequest;
@@ -29,133 +33,150 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
-    private final CacheService cacheService;
     private final TransactionRepository transactionRepository;
-    private final CardFeignClient cardFeignClient;
-    private final PaymentValidator paymentValidator;
-    private final OtpService otpService;
-    private final PaymentOfferMapper paymentOfferMapper;
     private final PaymentOfferEntityService paymentOfferEntityService;
+    private final TransactionMapper transactionMapper;
+    private final ObjectMapper objectMapper;
+    private final OutboxRepository outboxRepository;
+    private final FeeService feeService;
+    private final PaymentValidator paymentValidator;
     private final LocalDateValidator localDateValidator;
+    private final CardFeignClient cardFeignClient;
     private final DateConverter dateConverter;
     private final AnalyticsFeignClient analyticsFeignClient;
-    private final TransactionMapper transactionMapper;
 
     @Value("${transaction.per-page}")
     private int transactionsPerPage;
 
-    @Transactional
-    public PaymentResult processPayment(UUID userId, String offerId, PaymentRequestDto paymentRequest) {
-        PaymentOffer paymentOffer = getPaymentById(offerId);
-        CardDetailsDto cardDetailsDto = cardFeignClient.getLinkedCard(paymentRequest.getCardNumber(), userId).getBody();
-
-        paymentValidator.validatePayment(paymentRequest, cardDetailsDto, userId, paymentOffer);
-
-        PaymentOfferEntity paymentOfferEntity = paymentOfferMapper.toEntity(paymentOffer);
-        PaymentOfferEntity savedPaymentOfferEntity = paymentOfferEntityService.save(paymentOfferEntity);
-
-        UUID transactionId = initTransaction(
-                userId,
-                savedPaymentOfferEntity.getId(),
-                cardDetailsDto.getSecretDetails().number(),
-                cardDetailsDto.getCardType(),
-                paymentOfferEntity.getAmount(),
-                paymentOfferEntity.getCategory()
-        );
-
-        if (shouldRequireOtpVerification(cardDetailsDto, paymentOffer)) {
-            return handleOtpVerification(userId, paymentOffer);
-        }
-
-        finishTransactionById(transactionId);
-        return PaymentResult.success();
+    @Transactional(readOnly = true)
+    public Transaction getTransaction(UUID transactionId) {
+        return transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found"));
     }
 
-    private boolean shouldRequireOtpVerification(CardDetailsDto cardDetails, PaymentOffer paymentOffer) {
-        return cardDetails.getLimit() != null
-                && cardDetails.getLimit().limitEnabled()
-                && paymentOffer.amount().value().compareTo(cardDetails.getLimit().perTransactionLimit()) > 0;
-    }
-
-    private PaymentResult handleOtpVerification(UUID userId, PaymentOffer paymentOffer) {
-        otpService.initiateOtp(userId, String.valueOf(paymentOffer.id()));
-        String continuePaymentLink = String.format(
-                "http://localhost:8100/api/v1/otp/verify?userId=%s&offerId=%s",
-                userId, paymentOffer.id()
-        );
-        String message = "You have exceeded the allowed payment limit. Please complete the OTP verification by following this link: " + continuePaymentLink;
-        return PaymentResult.requiresOtp(message);
-    }
-
-    public PaymentOffer getPaymentById(String key) {
-        return cacheService.getPaymentOfferById(key);
+    @Transactional(readOnly = true)
+    public TransactionInfoDto getTransactionInfo(UUID transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found"));
+        return transactionMapper.toInfo(transaction);
     }
 
     @Transactional
-    public UUID initTransaction(UUID userId, String paymentOfferEntityId, String cardNumber, CardType cardType, BigDecimal amount, TransactionCategory category) {
-        PaymentOfferEntity paymentOfferEntity = paymentOfferEntityService.findPaymentOfferEntityById(paymentOfferEntityId);
-
-        BigDecimal signedAmount = category.applySign(amount);
+    public Transaction createTransaction(UUID userId, PaymentOfferEntity paymentOfferEntity, String cardNumber) {
+        BigDecimal amount = paymentOfferEntity.getAmount();
+        BigDecimal finalAmount = feeService.applyTransferFee(amount);
+        BigDecimal fee = finalAmount.subtract(amount).abs();
+        BigDecimal signedAmount = paymentOfferEntity.getCategory().applySign(finalAmount);
 
         Transaction transaction = Transaction.builder()
                 .userId(userId)
                 .offer(paymentOfferEntity)
                 .status(TransactionStatus.PENDING)
+                .cardType(CardType.DEBIT)
                 .cardNumber(cardNumber)
-                .cardType(cardType)
+                .fee(fee)
                 .amount(signedAmount)
                 .createdAt(Instant.now())
                 .build();
-
-        Transaction savedTransaction = transactionRepository.save(transaction);
-        return savedTransaction.getId();
+        return transactionRepository.save(transaction);
     }
 
     @Transactional
-    public void finishTransactionById(UUID transactionId) {
-        Transaction transaction = getTransactionById(transactionId);
-
-        String offerId = transaction.getOffer().getId();
-        PaymentOfferEntity paymentOfferEntity = paymentOfferEntityService.findPaymentOfferEntityById(offerId);
-
-        finishTransactionInternal(transaction, paymentOfferEntity);
-    }
-
-    @Transactional
-    public void finishTransactionByUserAndOffer(UUID userId, String offerId) {
-        Transaction transaction = transactionRepository.findByUserIdAndOfferIdAndStatus(
+    public void finishTransactionWithOtp(UUID userId, String offerId) {
+        Transaction pendingTransaction = transactionRepository.findByUserIdAndOfferIdAndStatus(
                         userId, offerId, TransactionStatus.PENDING)
                 .orElseThrow(() -> new TransactionNotFoundException("Pending transaction not found"));
-        PaymentOfferEntity paymentOfferEntity = paymentOfferEntityService.findPaymentOfferEntityById(offerId);
-        finishTransactionInternal(transaction, paymentOfferEntity);
+        finishTransaction(pendingTransaction.getId());
     }
 
-    private void finishTransactionInternal(Transaction transaction, PaymentOfferEntity paymentOfferEntity) {
-        cardFeignClient.subtractMoney(transaction.getUserId(), paymentOfferEntity.getAmount(), transaction.getCardNumber());
-        cacheService.removeOffer(transaction.getOffer().getId());
+    @Transactional
+    public Transaction finishTransaction(UUID transactionId) {
+        Transaction transaction = getTransaction(transactionId);
+        PaymentOfferEntity paymentOfferEntity = transaction.getOffer();
 
         transaction.setStatus(TransactionStatus.CONFIRMED);
         transaction.setConfirmedAt(Instant.now());
-
         paymentOfferEntity.setCompletedAt(Instant.now());
 
         paymentOfferEntityService.save(paymentOfferEntity);
+
+        Transaction successfulTransaction = transactionRepository.save(transaction);
+
+        try {
+            TransactionEvent transactionEvent = transactionMapper.toEvent(successfulTransaction);
+            transactionEvent.setTransactionType(paymentOfferEntity.getCategory().toString());
+
+            String eventPayload = objectMapper.writeValueAsString(transactionEvent);
+            OutboxEvent outboxEvent = OutboxEvent.builder()
+                    .eventType(TransactionEventType.TRANSACTION_SUCCESSFUL.toString())
+                    .payload(eventPayload)
+                    .createdAt(Instant.now())
+                    .build();
+            outboxRepository.save(outboxEvent);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize transaction successful event", e);
+        }
+
+        return successfulTransaction;
+    }
+
+    @Transactional
+    public void cancelTransaction(UUID transactionId) {
+        Transaction transaction = getTransaction(transactionId);
+        transaction.setStatus(TransactionStatus.CANCELLED);
+        transaction.setCancelledAt(Instant.now());
         transactionRepository.save(transaction);
+
+        paymentOfferEntityService.returnOffer(transaction.getOffer());
+
+        try {
+            TransactionEvent cancelledTransaction = transactionMapper.toEvent(transaction);
+            String eventPayload = objectMapper.writeValueAsString(cancelledTransaction);
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType(TransactionEventType.TRANSACTION_CANCELLED.toString())
+                    .payload(eventPayload)
+                    .createdAt(Instant.now())
+                    .build();
+            outboxRepository.save(event);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize transaction cancelled event", e);
+        }
     }
 
-    public Transaction getTransactionById(UUID id) {
-        return transactionRepository.getTransactionById(id).orElseThrow(() -> new TransactionNotFoundException("Transaction " + id + " not found"));
+    @Transactional
+    public void failTransaction(UUID transactionId) {
+        Transaction transaction = getTransaction(transactionId);
+        transaction.setStatus(TransactionStatus.FAILED);
+        transactionRepository.save(transaction);
+
+        paymentOfferEntityService.returnOffer(transaction.getOffer());
+
+        try {
+            TransactionEvent failedTransaction = transactionMapper.toEvent(transaction);
+            String eventPayload = objectMapper.writeValueAsString(failedTransaction);
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType(TransactionEventType.TRANSACTION_FAILED.toString())
+                    .payload(eventPayload)
+                    .createdAt(Instant.now())
+                    .build();
+            outboxRepository.save(event);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize transaction failed event", e);
+        }
     }
 
-    public void validateUserCardAccessWithDate(String cardNumber, UUID userId,  LocalDate from, LocalDate to) {
+    @Transactional(readOnly = true)
+    public void validateUserCardAccessWithDate(String cardNumber, UUID userId, LocalDate from, LocalDate to) {
         localDateValidator.validate(cardNumber, from, to);
-        CardDetailsDto cardDetailsDto = cardFeignClient.getLinkedCard(cardNumber, userId).getBody();
-        paymentValidator.validateCardOwnership(cardDetailsDto, userId);
+        CardInfoDto cardInfoDto = cardFeignClient.getCardByNumber(cardNumber);
+        paymentValidator.validateCardOwnership(cardInfoDto, userId);
     }
 
+    @Transactional(readOnly = true)
     public PeriodGroupedTransactionsDto getTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
         Instant start = dateConverter.toStartOfDayInstant(from);
         Instant end = dateConverter.toEndOfDayInstant(to);
@@ -177,6 +198,7 @@ public class TransactionService {
         );
     }
 
+    @Transactional(readOnly = true)
     public PeriodGroupedExpenseDto getExpenseTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
         Instant start = dateConverter.toStartOfDayInstant(from);
         Instant end = dateConverter.toEndOfDayInstant(to);
@@ -184,23 +206,40 @@ public class TransactionService {
         List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
 
         if (allTransactions.isEmpty()) {
-            return new PeriodGroupedExpenseDto(BigDecimal.ZERO, null, Collections.emptyList(), Collections.emptyList());
+            return new PeriodGroupedExpenseDto(BigDecimal.ZERO, Collections.emptyList(), Collections.emptyList());
         }
 
         List<Transaction> paginatedExpenses = findExpenseTransactionsByCardInPeriod(cardNumber, start, end, page);
-
         TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
-
-        String reportLink = analyticsFeignClient.analyzeExpenses(new CategorySpendingReportRequest(transactionAggregator.getCategorySpending(), cardNumber, from, to)).getBody();
 
         return new PeriodGroupedExpenseDto(
                 transactionAggregator.getTotalSpending(),
-                reportLink,
                 transactionAggregator.getCategorySpending(),
                 buildDailyTransactions(paginatedExpenses, transactionAggregator.getDailySpendingTotals())
         );
     }
 
+    @Transactional(readOnly = true)
+    public String getExpenseReportLink(String cardNumber, LocalDate from, LocalDate to) {
+        Instant start = dateConverter.toStartOfDayInstant(from);
+        Instant end = dateConverter.toEndOfDayInstant(to);
+
+        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
+
+        if (allTransactions.isEmpty()) {
+            throw new TransactionNotFoundException("No transactions found for the specified card and date range");
+        }
+
+        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
+        return analyticsFeignClient.analyzeExpenses(new CategorySpendingReportRequest(
+                transactionAggregator.getCategorySpending(),
+                cardNumber,
+                from,
+                to)
+        ).getBody();
+    }
+
+    @Transactional(readOnly = true)
     public PeriodGroupedIncomeDto getIncomeTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
         Instant start = dateConverter.toStartOfDayInstant(from);
         Instant end = dateConverter.toEndOfDayInstant(to);
@@ -263,10 +302,20 @@ public class TransactionService {
         return transactionRepository.findAllByCardNumberAndConfirmedAtBetweenAndAmountGreaterThan(cardNumber, start, end, BigDecimal.ZERO, pageable);
     }
 
-    public List<TransactionDto> getLastTransactions(String cardNumber, int limit) {
-        List<Transaction> transactions = transactionRepository.findByCardNumberOrderByConfirmedAtDesc(cardNumber, Limit.of(limit));
+    @Transactional(readOnly = true)
+    public List<TransactionDto> getRecentTransactions(String cardNumber, int count) {
+        List<Transaction> transactions = transactionRepository.findByCardNumberOrderByConfirmedAtDesc(cardNumber, Limit.of(count));
         return transactions.stream()
                 .map(transactionMapper::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> lastUsedCardNumbers(UUID userId, int offset, int limit) {
+        Pageable pageable = PageRequest.of(offset / limit, limit);
+        return transactionRepository.findAllByUserIdOrderByConfirmedAtDesc(userId, pageable).stream()
+                .map(Transaction::getCardNumber)
+                .distinct()
+                .toList();
     }
 }

@@ -27,11 +27,6 @@
           <package value="com.wallet.transactionservice" />
         </packages>
       </persistence-unit>
-      <persistence-unit moduleName="wallet-service" name="Default">
-        <packages>
-          <package value="com.wallet.walletservice" />
-        </packages>
-      </persistence-unit>
     </persistence-units>
   </component>
 </project>

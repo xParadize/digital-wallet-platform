@@ -6,7 +6,6 @@ import com.wallet.analyticsservice.exception.ExpenseAnalysisReportNotFoundExcept
 import com.wallet.analyticsservice.repository.ExpenseAnalysisReportRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -19,9 +18,8 @@ public class AnalyticsService {
     private final AiService aiService;
     private final ExpenseAnalysisReportRepository expenseAnalysisReportRepository;
 
-    @Transactional
     public UUID saveAnalytics(CategorySpendingReportRequest request) throws IOException, InterruptedException {
-        ExpenseAnalysisReport newReport = expenseAnalysisReportRepository.save(analysisBuilder(request));
+        ExpenseAnalysisReport newReport = expenseAnalysisReportRepository.saveExpenseReport(analysisBuilder(request));
         return newReport.getId();
     }
 
@@ -36,19 +34,14 @@ public class AnalyticsService {
     }
 
     public ExpenseAnalysisReport findExpenseReportByCardAndPeriod(String cardNumber, LocalDate from, LocalDate to) {
-        return expenseAnalysisReportRepository.findFirstByCardNumberAndPeriodFromAndPeriodTo(cardNumber, from, to)
+        return expenseAnalysisReportRepository.findFirstByCardNumberAndPeriod(cardNumber, from, to)
                 .orElse(null);
     }
 
-    public String getLinkToReport(UUID reportId) {
-        return "http://localhost:8008/analytics/" + reportId;
-    }
-
-    public ExpenseAnalysisReport getExpenseReportById(UUID reportId) {
+    public String getExpenseReportById(UUID reportId) {
         ExpenseAnalysisReport report = expenseAnalysisReportRepository.findById(reportId)
                 .orElseThrow(() -> new ExpenseAnalysisReportNotFoundException("Report " + reportId + " not found"));
-        report.setRequestedAt(Instant.now());
-        expenseAnalysisReportRepository.save(report);
-        return report;
+        expenseAnalysisReportRepository.saveReportView(report.getId(), Instant.now());
+        return report.getReport();
     }
 }

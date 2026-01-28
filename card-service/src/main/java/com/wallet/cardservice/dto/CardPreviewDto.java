@@ -1,7 +1,9 @@
 package com.wallet.cardservice.dto;
 
-import com.wallet.cardservice.enums.CardType;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
@@ -10,12 +12,9 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CardPreviewDto {
-    private String maskedCardNumber;
+    private String number;
     private String issuer;
     private String scheme;
-    private CardType cardType;
-    private boolean isFrozen;
-    private boolean isBlocked;
     private BigDecimal balance;
 }
 

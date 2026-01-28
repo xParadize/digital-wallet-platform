@@ -1,9 +1,7 @@
 package com.wallet.notificationservice.service;
 
-import com.wallet.notificationservice.event.CardBlockedEvent;
-import com.wallet.notificationservice.event.CardFrozenEvent;
 import com.wallet.notificationservice.event.CardLinkedEvent;
-import com.wallet.notificationservice.event.CardUnfrozenEvent;
+import com.wallet.notificationservice.event.CardStatusChangedEvent;
 import freemarker.template.Configuration;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -116,70 +114,25 @@ public class MailSenderService {
 
     @Async
     @SneakyThrows
-    public void sendCardFrozen(CardFrozenEvent event) {
+    public void sendCardStatusChanged(CardStatusChangedEvent event) {
         MimeMessage mimeMessage = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
-        helper.setSubject("Card frozen successfully");
+        helper.setSubject("Card status changed");
         helper.setTo(event.email());
-        String emailContent = getCardFrozen(event);
+        String emailContent = getCardStatusChanged(event);
         helper.setText(emailContent, true);
         mailSender.send(mimeMessage);
     }
 
     @SneakyThrows
-    private String getCardFrozen(CardFrozenEvent event) {
+    private String getCardStatusChanged(CardStatusChangedEvent event) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH);
         StringWriter writer = new StringWriter();
         Map<String, Object> model = new HashMap<>();
         model.put("card_number", event.cardNumber());
-        model.put("frozen_at", event.frozenAt().atZone(ZoneOffset.UTC).format(formatter));
-        configuration.getTemplate("card_frozen.ftlh").process(model, writer);
-        return writer.getBuffer().toString();
-    }
-
-    @Async
-    @SneakyThrows
-    public void sendCardUnfrozen(CardUnfrozenEvent event) {
-        MimeMessage mimeMessage = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
-        helper.setSubject("Card unfrozen successfully");
-        helper.setTo(event.email());
-        String emailContent = getCardUnfrozen(event);
-        helper.setText(emailContent, true);
-        mailSender.send(mimeMessage);
-    }
-
-    @SneakyThrows
-    private String getCardUnfrozen(CardUnfrozenEvent event) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH);
-        StringWriter writer = new StringWriter();
-        Map<String, Object> model = new HashMap<>();
-        model.put("card_number", event.cardNumber());
-        model.put("unfrozen_at", event.unfrozenAt().atZone(ZoneOffset.UTC).format(formatter));
-        configuration.getTemplate("card_unfrozen.ftlh").process(model, writer);
-        return writer.getBuffer().toString();
-    }
-
-    @Async
-    @SneakyThrows
-    public void sendCardBlocked(CardBlockedEvent event) {
-        MimeMessage mimeMessage = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
-        helper.setSubject("Card blocked successfully");
-        helper.setTo(event.email());
-        String emailContent = getCardBlocked(event);
-        helper.setText(emailContent, true);
-        mailSender.send(mimeMessage);
-    }
-
-    @SneakyThrows
-    private String getCardBlocked(CardBlockedEvent event) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH);
-        StringWriter writer = new StringWriter();
-        Map<String, Object> model = new HashMap<>();
-        model.put("card_number", event.cardNumber());
-        model.put("blocked_at", event.blockedAt().atZone(ZoneOffset.UTC).format(formatter));
-        configuration.getTemplate("card_blocked.ftlh").process(model, writer);
+        model.put("changed_at", event.changedAt().atZone(ZoneOffset.UTC).format(formatter));
+        model.put("new_status", event.status());
+        configuration.getTemplate("card_status_changed.ftlh").process(model, writer);
         return writer.getBuffer().toString();
     }
 }
