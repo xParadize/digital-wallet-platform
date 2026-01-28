@@ -1,5 +1,6 @@
 package com.wallet.transactionservice.util;
 
+import com.wallet.transactionservice.dto.CardDetailsDto;
 import com.wallet.transactionservice.dto.CardInfoDto;
 import com.wallet.transactionservice.dto.PaymentOffer;
 import com.wallet.transactionservice.dto.PaymentRequestDto;
@@ -34,7 +35,7 @@ public class PaymentValidator {
         }
     }
 
-    private void validateCardOwnership(CardInfoDto cardInfoDto, UUID userId) {
+    public void validateCardOwnership(CardInfoDto cardInfoDto, UUID userId) {
         if (cardInfoDto.getHolder() == null || !cardInfoDto.getHolder().id().equals(userId)) {
             throw new CardAccessDeniedException("Payment authorization failed");
         }

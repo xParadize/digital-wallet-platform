@@ -15,6 +15,7 @@ public interface TransactionMapper {
     TransactionDto toDto(Transaction transaction);
 
     @Mapping(source = "offer.id", target = "offerId", qualifiedByName = "extractOfferId")
+    @Mapping(target = "transactionType", ignore = true)
     TransactionEvent toEvent(Transaction transaction);
 
     @Mapping(source = "offer.vendor", target = "vendor")

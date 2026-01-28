@@ -9,6 +9,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 @FeignClient(name = "${digital-wallet-platform.services.analytics-service.uri}")
 public interface AnalyticsFeignClient {
 
-    @PostMapping("/api/v1/analytics/")
+    @PostMapping("/api/v1/analytics/report")
     ResponseEntity<String> analyzeExpenses(@RequestBody CategorySpendingReportRequest request);
 }

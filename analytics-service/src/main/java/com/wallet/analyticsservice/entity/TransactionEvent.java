@@ -19,6 +19,7 @@ public class TransactionEvent {
     private String cardNumber;
     private String cardType;
     private BigDecimal amount;
+    private String transactionType;
     private Instant createdAt;
     private Instant confirmedAt;
     private Instant cancelledAt;

@@ -82,3 +82,7 @@ security:
   jwt:
     secret: ${JWT_SECRET}
     expirationMs: ${JWT_EXPIRATION_TIME_MS}
+
+ai:
+  api-key: ${AI_API_KEY}
+  base-url: ${AI_BASE_URL}

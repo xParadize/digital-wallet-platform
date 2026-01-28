@@ -2,9 +2,7 @@ package com.wallet.transactionservice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.wallet.transactionservice.dto.TransactionDto;
-import com.wallet.transactionservice.dto.TransactionEvent;
-import com.wallet.transactionservice.dto.TransactionInfoDto;
+import com.wallet.transactionservice.dto.*;
 import com.wallet.transactionservice.entity.OutboxEvent;
 import com.wallet.transactionservice.entity.PaymentOfferEntity;
 import com.wallet.transactionservice.entity.Transaction;
@@ -12,10 +10,17 @@ import com.wallet.transactionservice.enums.CardType;
 import com.wallet.transactionservice.enums.TransactionEventType;
 import com.wallet.transactionservice.enums.TransactionStatus;
 import com.wallet.transactionservice.exception.TransactionNotFoundException;
+import com.wallet.transactionservice.feign.AnalyticsFeignClient;
+import com.wallet.transactionservice.feign.CardFeignClient;
 import com.wallet.transactionservice.mapper.TransactionMapper;
 import com.wallet.transactionservice.repository.OutboxRepository;
 import com.wallet.transactionservice.repository.TransactionRepository;
+import com.wallet.transactionservice.util.DateConverter;
+import com.wallet.transactionservice.util.LocalDateValidator;
+import com.wallet.transactionservice.util.PaymentValidator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,10 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
@@ -37,6 +43,14 @@ public class TransactionService {
     private final ObjectMapper objectMapper;
     private final OutboxRepository outboxRepository;
     private final FeeService feeService;
+    private final PaymentValidator paymentValidator;
+    private final LocalDateValidator localDateValidator;
+    private final CardFeignClient cardFeignClient;
+    private final DateConverter dateConverter;
+    private final AnalyticsFeignClient analyticsFeignClient;
+
+    @Value("${transaction.per-page}")
+    private int transactionsPerPage;
 
     @Transactional(readOnly = true)
     public Transaction getTransaction(UUID transactionId) {
@@ -94,6 +108,8 @@ public class TransactionService {
 
         try {
             TransactionEvent transactionEvent = transactionMapper.toEvent(successfulTransaction);
+            transactionEvent.setTransactionType(paymentOfferEntity.getCategory().toString());
+
             String eventPayload = objectMapper.writeValueAsString(transactionEvent);
             OutboxEvent outboxEvent = OutboxEvent.builder()
                     .eventType(TransactionEventType.TRANSACTION_SUCCESSFUL.toString())
@@ -153,118 +169,138 @@ public class TransactionService {
         }
     }
 
-//    public void validateUserCardAccessWithDate(String cardNumber, UUID userId,  LocalDate from, LocalDate to) {
-//        localDateValidator.validate(cardNumber, from, to);
-//        CardDetailsDto cardDetailsDto = cardFeignClient.getCardByNumber(cardNumber).getBody();
-//        paymentValidator.validateCardOwnership(cardDetailsDto, userId);
-//    }
-//
-//    public PeriodGroupedTransactionsDto getTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
-//        Instant start = dateConverter.toStartOfDayInstant(from);
-//        Instant end = dateConverter.toEndOfDayInstant(to);
-//
-//        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
-//
-//        if (allTransactions.isEmpty()) {
-//            return new PeriodGroupedTransactionsDto(BigDecimal.ZERO, BigDecimal.ZERO, Collections.emptyList());
-//        }
-//
-//        List<Transaction> paginatedTransactions = findTransactionsByCardInPeriod(cardNumber, start, end, page);
-//
-//        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
-//
-//        return new PeriodGroupedTransactionsDto(
-//                transactionAggregator.getTotalSpending(),
-//                transactionAggregator.getTotalIncome(),
-//                buildDailyTransactions(paginatedTransactions, transactionAggregator.getDailyTotals())
-//        );
-//    }
-//
-//    public PeriodGroupedExpenseDto getExpenseTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
-//        Instant start = dateConverter.toStartOfDayInstant(from);
-//        Instant end = dateConverter.toEndOfDayInstant(to);
-//
-//        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
-//
-//        if (allTransactions.isEmpty()) {
-//            return new PeriodGroupedExpenseDto(BigDecimal.ZERO, null, Collections.emptyList(), Collections.emptyList());
-//        }
-//
-//        List<Transaction> paginatedExpenses = findExpenseTransactionsByCardInPeriod(cardNumber, start, end, page);
-//
-//        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
-//
-//        String reportLink = analyticsFeignClient.analyzeExpenses(new CategorySpendingReportRequest(transactionAggregator.getCategorySpending(), cardNumber, from, to)).getBody();
-//
-//        return new PeriodGroupedExpenseDto(
-//                transactionAggregator.getTotalSpending(),
-//                reportLink,
-//                transactionAggregator.getCategorySpending(),
-//                buildDailyTransactions(paginatedExpenses, transactionAggregator.getDailySpendingTotals())
-//        );
-//    }
-//
-//    public PeriodGroupedIncomeDto getIncomeTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
-//        Instant start = dateConverter.toStartOfDayInstant(from);
-//        Instant end = dateConverter.toEndOfDayInstant(to);
-//
-//        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
-//
-//        if (allTransactions.isEmpty()) {
-//            return new PeriodGroupedIncomeDto(BigDecimal.ZERO, Collections.emptyList(), Collections.emptyList());
-//        }
-//
-//        List<Transaction> paginatedIncome = findIncomeTransactionsByCardInPeriod(cardNumber, start, end, page);
-//
-//        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
-//
-//        return new PeriodGroupedIncomeDto(
-//                transactionAggregator.getTotalIncome(),
-//                transactionAggregator.getCategoryIncome(),
-//                buildDailyTransactions(paginatedIncome, transactionAggregator.getDailyIncomeTotals())
-//        );
-//    }
-//
-//    private List<DailyTransactionDto> buildDailyTransactions(List<Transaction> transactions, Map<LocalDate, BigDecimal> dailyTotals) {
-//        return transactions.stream()
-//                .collect(Collectors.groupingBy(
-//                        t -> dateConverter.toLocalDate(t.getConfirmedAt())))
-//                .entrySet().stream()
-//                .map(entry -> new DailyTransactionDto(
-//                        entry.getKey(),
-//                        dailyTotals.getOrDefault(entry.getKey(), BigDecimal.ZERO),
-//                        mapToTransactionDtos(entry.getValue())
-//                ))
-//                .sorted(Comparator.comparing(DailyTransactionDto::date))
-//                .toList();
-//    }
-//
-//    private List<TransactionDto> mapToTransactionDtos(List<Transaction> transactions) {
-//        return transactions.stream()
-//                .map(t -> new TransactionDto(
-//                        t.getOffer().getVendor(),
-//                        t.getOffer().getCategory(),
-//                        t.getAmount(),
-//                        t.getCardNumber(),
-//                        t.getConfirmedAt()
-//                ))
-//                .toList();
-//    }
-//
-//    private List<Transaction> findTransactionsByCardInPeriod(String cardNumber, Instant start, Instant end, int page) {
-//        Pageable pageable = PageRequest.of(page, transactionsPerPage);
-//        return transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end, pageable);
-//    }
-//
-//    private List<Transaction> findExpenseTransactionsByCardInPeriod(String cardNumber, Instant start, Instant end, int page) {
-//        Pageable pageable = PageRequest.of(page, transactionsPerPage);
-//        return transactionRepository.findAllByCardNumberAndConfirmedAtBetweenAndAmountLessThan(cardNumber, start, end, BigDecimal.ZERO, pageable);
-//    }
-//
-//    private List<Transaction> findIncomeTransactionsByCardInPeriod(String cardNumber, Instant start, Instant end, int page) {
-//        Pageable pageable = PageRequest.of(page, transactionsPerPage);
-//        return transactionRepository.findAllByCardNumberAndConfirmedAtBetweenAndAmountGreaterThan(cardNumber, start, end, BigDecimal.ZERO, pageable);
-//    }
+    @Transactional(readOnly = true)
+    public void validateUserCardAccessWithDate(String cardNumber, UUID userId, LocalDate from, LocalDate to) {
+        localDateValidator.validate(cardNumber, from, to);
+        CardInfoDto cardInfoDto = cardFeignClient.getCardByNumber(cardNumber);
+        paymentValidator.validateCardOwnership(cardInfoDto, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public PeriodGroupedTransactionsDto getTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
+        Instant start = dateConverter.toStartOfDayInstant(from);
+        Instant end = dateConverter.toEndOfDayInstant(to);
+
+        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
+
+        if (allTransactions.isEmpty()) {
+            return new PeriodGroupedTransactionsDto(BigDecimal.ZERO, BigDecimal.ZERO, Collections.emptyList());
+        }
+
+        List<Transaction> paginatedTransactions = findTransactionsByCardInPeriod(cardNumber, start, end, page);
+
+        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
+
+        return new PeriodGroupedTransactionsDto(
+                transactionAggregator.getTotalSpending(),
+                transactionAggregator.getTotalIncome(),
+                buildDailyTransactions(paginatedTransactions, transactionAggregator.getDailyTotals())
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PeriodGroupedExpenseDto getExpenseTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
+        Instant start = dateConverter.toStartOfDayInstant(from);
+        Instant end = dateConverter.toEndOfDayInstant(to);
+
+        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
+
+        if (allTransactions.isEmpty()) {
+            return new PeriodGroupedExpenseDto(BigDecimal.ZERO, Collections.emptyList(), Collections.emptyList());
+        }
+
+        List<Transaction> paginatedExpenses = findExpenseTransactionsByCardInPeriod(cardNumber, start, end, page);
+        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
+
+        return new PeriodGroupedExpenseDto(
+                transactionAggregator.getTotalSpending(),
+                transactionAggregator.getCategorySpending(),
+                buildDailyTransactions(paginatedExpenses, transactionAggregator.getDailySpendingTotals())
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public String getExpenseReportLink(String cardNumber, LocalDate from, LocalDate to) {
+        Instant start = dateConverter.toStartOfDayInstant(from);
+        Instant end = dateConverter.toEndOfDayInstant(to);
+
+        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
+
+        if (allTransactions.isEmpty()) {
+            throw new TransactionNotFoundException("No transactions found for the specified card and date range");
+        }
+
+        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
+        return analyticsFeignClient.analyzeExpenses(new CategorySpendingReportRequest(
+                transactionAggregator.getCategorySpending(),
+                cardNumber,
+                from,
+                to)
+        ).getBody();
+    }
+
+    @Transactional(readOnly = true)
+    public PeriodGroupedIncomeDto getIncomeTransactionsByPeriod(String cardNumber, LocalDate from, LocalDate to, int page) {
+        Instant start = dateConverter.toStartOfDayInstant(from);
+        Instant end = dateConverter.toEndOfDayInstant(to);
+
+        List<Transaction> allTransactions = transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end);
+
+        if (allTransactions.isEmpty()) {
+            return new PeriodGroupedIncomeDto(BigDecimal.ZERO, Collections.emptyList(), Collections.emptyList());
+        }
+
+        List<Transaction> paginatedIncome = findIncomeTransactionsByCardInPeriod(cardNumber, start, end, page);
+
+        TransactionAggregator transactionAggregator = new TransactionAggregator(allTransactions, dateConverter);
+
+        return new PeriodGroupedIncomeDto(
+                transactionAggregator.getTotalIncome(),
+                transactionAggregator.getCategoryIncome(),
+                buildDailyTransactions(paginatedIncome, transactionAggregator.getDailyIncomeTotals())
+        );
+    }
+
+    private List<DailyTransactionDto> buildDailyTransactions(List<Transaction> transactions, Map<LocalDate, BigDecimal> dailyTotals) {
+        return transactions.stream()
+                .collect(Collectors.groupingBy(
+                        t -> dateConverter.toLocalDate(t.getConfirmedAt())))
+                .entrySet().stream()
+                .map(entry -> new DailyTransactionDto(
+                        entry.getKey(),
+                        dailyTotals.getOrDefault(entry.getKey(), BigDecimal.ZERO),
+                        mapToTransactionDtos(entry.getValue())
+                ))
+                .sorted(Comparator.comparing(DailyTransactionDto::date))
+                .toList();
+    }
+
+    private List<TransactionDto> mapToTransactionDtos(List<Transaction> transactions) {
+        return transactions.stream()
+                .map(t -> new TransactionDto(
+                        t.getOffer().getVendor(),
+                        t.getOffer().getCategory(),
+                        t.getAmount(),
+                        t.getCardNumber(),
+                        t.getConfirmedAt()
+                ))
+                .toList();
+    }
+
+    private List<Transaction> findTransactionsByCardInPeriod(String cardNumber, Instant start, Instant end, int page) {
+        Pageable pageable = PageRequest.of(page, transactionsPerPage);
+        return transactionRepository.findAllByCardNumberAndConfirmedAtBetween(cardNumber, start, end, pageable);
+    }
+
+    private List<Transaction> findExpenseTransactionsByCardInPeriod(String cardNumber, Instant start, Instant end, int page) {
+        Pageable pageable = PageRequest.of(page, transactionsPerPage);
+        return transactionRepository.findAllByCardNumberAndConfirmedAtBetweenAndAmountLessThan(cardNumber, start, end, BigDecimal.ZERO, pageable);
+    }
+
+    private List<Transaction> findIncomeTransactionsByCardInPeriod(String cardNumber, Instant start, Instant end, int page) {
+        Pageable pageable = PageRequest.of(page, transactionsPerPage);
+        return transactionRepository.findAllByCardNumberAndConfirmedAtBetweenAndAmountGreaterThan(cardNumber, start, end, BigDecimal.ZERO, pageable);
+    }
 
     @Transactional(readOnly = true)
     public List<TransactionDto> getRecentTransactions(String cardNumber, int count) {
@@ -282,5 +318,4 @@ public class TransactionService {
                 .distinct()
                 .toList();
     }
-
 }

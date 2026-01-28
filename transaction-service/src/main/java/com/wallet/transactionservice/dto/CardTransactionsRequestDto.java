@@ -9,7 +9,7 @@ import org.hibernate.validator.constraints.CreditCardNumber;
 @Getter
 @Setter
 public class CardTransactionsRequestDto {
-    @CreditCardNumber(message = "Invalid card number")
+    // @CreditCardNumber(message = "Invalid card number")
     @NotEmpty(message = "Field 'cardNumber' shouldn't be empty")
     private String cardNumber;
 

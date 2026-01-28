@@ -30,6 +30,10 @@ spring:
               uri: lb://${TRANSACTION_SERVICE_BASE_URL}
               predicates:
                 - Path=/api/v1/transactions/**
+            - id: analytics-service
+              uri: lb://${ANALYTICS_SERVICE_BASE_URL}
+              predicates:
+                - Path=/api/v1/analytics/**
 
 eureka:
   client:

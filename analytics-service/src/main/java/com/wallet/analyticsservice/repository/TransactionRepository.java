@@ -13,7 +13,7 @@ public class TransactionRepository {
 
     @Transactional
     public void save(TransactionEvent transactionEvent) {
-        String sql = "INSERT INTO transaction_event (id, user_id, offer_id, status, card_type, created_at, confirmed_at, cancelled_at, card_number, amount) " +
+        String sql = "INSERT INTO transaction_event (id, user_id, offer_id, status, card_type, created_at, confirmed_at, cancelled_at, card_number, amount, transaction_type) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         jdbcTemplate.update(sql,
                 transactionEvent.getId(),
@@ -25,7 +25,8 @@ public class TransactionRepository {
                 transactionEvent.getConfirmedAt(),
                 transactionEvent.getCancelledAt(),
                 transactionEvent.getCardNumber(),
-                transactionEvent.getAmount()
+                transactionEvent.getAmount(),
+                transactionEvent.getTransactionType()
         );
     }
 }

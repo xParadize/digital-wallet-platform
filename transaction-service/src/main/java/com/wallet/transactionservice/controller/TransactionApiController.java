@@ -15,6 +15,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -80,80 +81,101 @@ public class TransactionApiController {
         return transactionService.lastUsedCardNumbers(userId, offset, limit);
     }
 
-    //    @PostMapping("/period")
-//    public PeriodGroupedTransactionsDto getTransactions(@RequestBody @Valid CardTransactionsRequestDto request,
-//                                                        @RequestParam(defaultValue = "0") int page,
-//                                          BindingResult bindingResult,
-//                                          @RequestHeader("Authorization") String authorizationHeader) {
-//        validateInput(bindingResult);
-//
-//        String jwt = extractJwtFromHeader(authorizationHeader);
-//        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-//
-//        transactionService.validateUserCardAccessWithDate(
-//                request.getCardNumber(),
-//                userId,
-//                LocalDate.parse(request.getFrom()),
-//                LocalDate.parse(request.getTo())
-//        );
-//
-//        return transactionService.getTransactionsByPeriod(
-//                request.getCardNumber(),
-//                LocalDate.parse(request.getFrom()),
-//                LocalDate.parse(request.getTo()),
-//                page
-//        );
-//    }
-//
-//    @PostMapping("/expense/period")
-//    public PeriodGroupedExpenseDto getExpense(@RequestBody @Valid CardTransactionsRequestDto request,
-//                                                        @RequestParam(defaultValue = "0") int page,
-//                                                        BindingResult bindingResult,
-//                                                        @RequestHeader("Authorization") String authorizationHeader) {
-//        validateInput(bindingResult);
-//
-//        String jwt = extractJwtFromHeader(authorizationHeader);
-//        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-//
-//        transactionService.validateUserCardAccessWithDate(
-//                request.getCardNumber(),
-//                userId,
-//                LocalDate.parse(request.getFrom()),
-//                LocalDate.parse(request.getTo())
-//        );
-//
-//        return transactionService.getExpenseTransactionsByPeriod(
-//                request.getCardNumber(),
-//                LocalDate.parse(request.getFrom()),
-//                LocalDate.parse(request.getTo()),
-//                page
-//        );
-//    }
-//
-//    @PostMapping("/income/period")
-//    public PeriodGroupedIncomeDto getIncome(@RequestBody @Valid CardTransactionsRequestDto request,
-//                                              @RequestParam(defaultValue = "0") int page,
-//                                              BindingResult bindingResult,
-//                                              @RequestHeader("Authorization") String authorizationHeader) {
-//        validateInput(bindingResult);
-//
-//        String jwt = extractJwtFromHeader(authorizationHeader);
-//        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
-//
-//        transactionService.validateUserCardAccessWithDate(
-//                request.getCardNumber(),
-//                userId,
-//                LocalDate.parse(request.getFrom()),
-//                LocalDate.parse(request.getTo())
-//        );
-//
-//        return transactionService.getIncomeTransactionsByPeriod(
-//                request.getCardNumber(),
-//                LocalDate.parse(request.getFrom()),
-//                LocalDate.parse(request.getTo()),
-//                page
-//        );
-//    }
+    @PostMapping("/period")
+    public PeriodGroupedTransactionsDto getTransactions(@RequestBody @Valid CardTransactionsRequestDto request,
+                                                        @RequestParam(defaultValue = "0") int page,
+                                          BindingResult bindingResult,
+                                          @RequestHeader("Authorization") String authorizationHeader) {
+        validateInput(bindingResult);
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        transactionService.validateUserCardAccessWithDate(
+                request.getCardNumber(),
+                userId,
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo())
+        );
+
+        return transactionService.getTransactionsByPeriod(
+                request.getCardNumber(),
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo()),
+                page
+        );
+    }
+
+    @PostMapping("/expense/period")
+    public PeriodGroupedExpenseDto getExpense(@RequestBody @Valid CardTransactionsRequestDto request,
+                                                        @RequestParam(defaultValue = "0") int page,
+                                                        BindingResult bindingResult,
+                                                        @RequestHeader("Authorization") String authorizationHeader) {
+        validateInput(bindingResult);
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        transactionService.validateUserCardAccessWithDate(
+                request.getCardNumber(),
+                userId,
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo())
+        );
+
+        return transactionService.getExpenseTransactionsByPeriod(
+                request.getCardNumber(),
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo()),
+                page
+        );
+    }
+
+    @PostMapping("/income/period")
+    public PeriodGroupedIncomeDto getIncome(@RequestBody @Valid CardTransactionsRequestDto request,
+                                            @RequestParam(defaultValue = "0") int page,
+                                            BindingResult bindingResult,
+                                            @RequestHeader("Authorization") String authorizationHeader) {
+        validateInput(bindingResult);
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        transactionService.validateUserCardAccessWithDate(
+                request.getCardNumber(),
+                userId,
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo())
+        );
+
+        return transactionService.getIncomeTransactionsByPeriod(
+                request.getCardNumber(),
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo()),
+                page
+        );
+    }
+
+    @PostMapping("/expense/period/analytics")
+    public ResponseEntity<ApiResponse> getExpenseAnalytics(@RequestBody @Valid CardTransactionsRequestDto request,
+                                                          BindingResult bindingResult,
+                                                          @RequestHeader("Authorization") String authorizationHeader) {
+        validateInput(bindingResult);
+        String jwt = extractJwtFromHeader(authorizationHeader);
+        UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
+
+        transactionService.validateUserCardAccessWithDate(
+                request.getCardNumber(),
+                userId,
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo())
+        );
+
+        String reportLink = transactionService.getExpenseReportLink(
+                request.getCardNumber(),
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo())
+        );
+
+        return new ResponseEntity<>(new ApiResponse(true, reportLink), HttpStatus.OK);
+    }
 
     private String extractJwtFromHeader(String authorizationHeader) {
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
