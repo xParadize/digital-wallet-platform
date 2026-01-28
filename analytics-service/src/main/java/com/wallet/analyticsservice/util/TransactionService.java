@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class TransactionService {
     private final TransactionRepository transactionRepository;
 
-    @Transactional
     public void save(TransactionEvent transactionEvent) {
         log.info("transaction completed");
         transactionRepository.save(transactionEvent);
