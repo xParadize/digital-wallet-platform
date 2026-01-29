@@ -30,7 +30,7 @@ public class CardRequestsValidator {
     public void validateUpdateCardLimitRequest(Long cardId, UUID userId, BigDecimal limit) {
         cardSecurityProvider.checkCardOwner(cardId, userId);
         if (limit.compareTo(defaultPerTransactionLimit) >= 0) {
-            throw new CardLimitException("The new  limit must be less than the system default limit of " + formatter.format(defaultPerTransactionLimit));
+            throw new CardLimitException("The new limit must be less than the system default limit of " + formatter.format(defaultPerTransactionLimit));
         }
     }
 

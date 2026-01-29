@@ -103,6 +103,7 @@ public class CardService {
 
     @Transactional
     public void saveCard(SaveCardDto saveCardDto, String email, UUID userId) {
+        cardSecurityProvider.checkUserCardAmount(userId);
         Card card = buildCardEntity(saveCardDto, userId);
         cardRepository.save(card);
         sendCardLinkedEvent(card, email);

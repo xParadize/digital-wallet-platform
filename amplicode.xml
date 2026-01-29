@@ -27,6 +27,11 @@
           <package value="com.wallet.transactionservice" />
         </packages>
       </persistence-unit>
+      <persistence-unit moduleName="analytics-service" name="Default">
+        <packages>
+          <package value="com.wallet.analyticsservice" />
+        </packages>
+      </persistence-unit>
     </persistence-units>
   </component>
 </project>
