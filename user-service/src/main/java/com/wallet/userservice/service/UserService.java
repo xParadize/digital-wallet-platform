@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -21,7 +22,9 @@ public class UserService {
 
     @Transactional
     public void saveUser(UnverifiedUser unverifiedUser) {
-        userRepository.save(userMapper.toEntity(unverifiedUser));
+        User userToSave = userMapper.toEntity(unverifiedUser);
+        userToSave.setCreatedAt(Instant.now());
+        userRepository.save(userToSave);
     }
 
     public boolean existsByEmailOrPhone(String email, String phone) {
