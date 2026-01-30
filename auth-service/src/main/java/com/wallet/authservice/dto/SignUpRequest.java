@@ -18,7 +18,7 @@ public class SignUpRequest {
             regexp = "^[A-Z][a-z]+(?:[ .'-][a-z]+)*$",
             message = "Only Latin letters are allowed and the first letter must be uppercase"
     )
-    @Size(min = 2, message = "Name can't be less than 2 symbols")
+    @Size(min = 2, max = 50, message = "Name must be between 2 and 50 symbols")
     private String name;
 
     @NotEmpty(message = "Field 'lastname' shouldn't be empty")
@@ -26,7 +26,7 @@ public class SignUpRequest {
             regexp = "^[A-Z][a-z]+(?:[ .'-][a-z]+)*$",
             message = "Only Latin letters are allowed and the first letter must be uppercase"
     )
-    @Size(min = 2, message = "Lastname can't be less than 2 symbols")
+    @Size(min = 2, max = 50, message = "Lastname must be between 2 and 50 symbols")
     private String lastname;
 
     @NotEmpty(message = "Field 'patronymic' shouldn't be empty")
@@ -34,7 +34,7 @@ public class SignUpRequest {
             regexp = "^[A-Z][a-z]+(?:[ .'-][a-z]+)*$",
             message = "Only Latin letters are allowed and the first letter must be uppercase"
     )
-    @Size(min = 2, message = "Lastname can't be less than 2 symbols")
+    @Size(min = 2, max = 50, message = "Lastname must be between 2 and 50 symbols")
     private String patronymic;
 
     @JsonProperty("birth_date")

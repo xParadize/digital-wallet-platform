@@ -7,6 +7,14 @@ import com.wallet.authservice.exception.IncorrectSearchPath;
 import com.wallet.authservice.exception.InvalidAuthorizationException;
 import com.wallet.authservice.service.*;
 import com.wallet.authservice.util.AuthRequestsValidator;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +30,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Tag(name = "Auth API", description = "Authentication, registration and token management")
 public class AuthController {
     private final UnverifiedUserService unverifiedUserService;
     private final AuthService authService;
@@ -31,15 +40,21 @@ public class AuthController {
     private final AuthRequestsValidator authRequestsValidator;
 
     @Value("${unverified-user.ttl.sec}")
-    long unverifiedUserTtl;
+    private long unverifiedUserTtl;
 
+    @Operation(summary = "Catch-all for unknown paths", description = "Returns 404 for unsupported auth API paths.", hidden = true)
     @RequestMapping(value = "/**")
-    public ResponseEntity<ApiResponse> handleNotFound() {
+    public ResponseEntity<ApiStatusResponse> handleNotFound() {
         throw new IncorrectSearchPath();
     }
 
+    @Operation(summary = "Sign up", description = "Registers a new user. Sends email confirmation link. User must confirm email within TTL.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Registration successful, confirmation email sent", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failed (e.g. password mismatch, duplicate email/phone)")
+    })
     @PostMapping("/sign-up")
-    public ResponseEntity<ApiResponse> signUp(@RequestBody @Valid SignUpRequest request, BindingResult bindingResult) {
+    public ResponseEntity<ApiStatusResponse> signUp(@RequestBody @Valid SignUpRequest request, BindingResult bindingResult) {
         validateInput(bindingResult);
 
         authRequestsValidator.validateSignUpRequest(
@@ -51,16 +66,27 @@ public class AuthController {
 
         unverifiedUserService.saveUnverifiedUser(request);
         String message = String.format("Please, confirm your email within %s minutes", unverifiedUserTtl / 60);
-        return new ResponseEntity<>(new ApiResponse(true, message), HttpStatus.OK);
+        return new ResponseEntity<>(new ApiStatusResponse(true, message), HttpStatus.OK);
     }
 
+    @Operation(summary = "Confirm email", description = "Confirms user email using the token from the confirmation link. Enables the user and returns auth response.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Email confirmed, user enabled", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid or expired confirmation code")
+    })
     @GetMapping("/confirm-email/{code}")
-    public ResponseEntity<ApiResponse> confirmEmail(@PathVariable("code") String code) {
+    public ResponseEntity<ApiStatusResponse> confirmEmail(@Parameter(description = "Email confirmation token from link") @PathVariable("code") String code) {
         UnverifiedUser unverifiedUser = authService.confirmEmailToken(code);
         String authResponse = unverifiedUserService.enableUser(unverifiedUser);
-        return new ResponseEntity<>(new ApiResponse(true, authResponse), HttpStatus.OK);
+        return new ResponseEntity<>(new ApiStatusResponse(true, authResponse), HttpStatus.OK);
     }
 
+    @Operation(summary = "Sign in", description = "Authenticates user with email and password. Returns JWT access and refresh tokens.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Authentication successful", content = @Content(schema = @Schema(implementation = JwtAuthenticationResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failed"),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials")
+    })
     @PostMapping("/sign-in")
     public JwtAuthenticationResponse signIn(@RequestBody @Valid SignInRequest request, BindingResult bindingResult) {
         validateInput(bindingResult);
@@ -68,16 +94,30 @@ public class AuthController {
         return authService.signIn(request);
     }
 
+    @Operation(summary = "Refresh token", description = "Issues new access and refresh tokens using a valid refresh token.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "New tokens issued", content = @Content(schema = @Schema(implementation = JwtAuthenticationResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failed"),
+            @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token")
+    })
     @PostMapping("/refresh-token")
     public JwtAuthenticationResponse refreshToken(@RequestBody @Valid RefreshTokenRequest request, BindingResult bindingResult) {
         validateInput(bindingResult);
         return refreshTokenService.refreshToken(request);
     }
 
+    @Operation(summary = "Change password", description = "Changes the password for the authenticated user. Requires valid JWT.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Password changed successfully", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failed (e.g. wrong old password)"),
+            @ApiResponse(responseCode = "401", description = "Invalid or missing authorization")
+    })
+    @SecurityRequirement(name = "Bearer Authentication")
     @PostMapping("/change-password")
-    public ResponseEntity<ApiResponse> changePassword(@RequestBody @Valid ChangePasswordRequest request,
-                                            BindingResult bindingResult,
-                                            @RequestHeader("Authorization") String authorizationHeader) {
+    public ResponseEntity<ApiStatusResponse> changePassword(
+            @RequestBody @Valid ChangePasswordRequest request,
+            BindingResult bindingResult,
+            @RequestHeader("Authorization") String authorizationHeader) {
         validateInput(bindingResult);
         String jwt = extractJwtFromHeader(authorizationHeader);
         String email = jwtService.extractEmailFromJwt(jwt);
@@ -88,7 +128,7 @@ public class AuthController {
                 request.getNewPassword()
         );
         userPrototypeService.changePassword(request.getNewPassword(), email);
-        return new ResponseEntity<>(new ApiResponse(true, "The password has been successfully changed"), HttpStatus.OK);
+        return new ResponseEntity<>(new ApiStatusResponse(true, "The password has been successfully changed"), HttpStatus.OK);
     }
 
     private String extractJwtFromHeader(String authorizationHeader) {

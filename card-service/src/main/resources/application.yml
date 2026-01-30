@@ -113,3 +113,6 @@ security:
 payment:
   limits:
     per-transaction-amount: 1000000000.00
+
+card:
+  max-active-cards-per-user: 50

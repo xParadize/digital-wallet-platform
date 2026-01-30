@@ -1,8 +1,8 @@
-package com.wallet.userservice.dto;
+package com.wallet.authservice.dto;
 
 import java.time.Instant;
 
-public record ApiResponse(
+public record ApiStatusResponse(
         boolean success,
         String message
 ) {

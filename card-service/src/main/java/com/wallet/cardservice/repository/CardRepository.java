@@ -42,10 +42,7 @@ public interface CardRepository extends JpaRepository<Card, Long> {
             @Param("userId") UUID userId
     );
 
-    @Query("SELECT c.id FROM Card c " +
-            "JOIN c.cardDetails cd " +
-            "WHERE cd.number = :cardNumber")
-    Optional<Long> findIdByCardDetails_Number(String cardNumber);
+    int countByUserId(UUID userId);
 
     @EntityGraph(attributePaths = {"cardMetadata", "cardDetails", "limit"})
     Optional<Card> findByCardDetails_Number(String cardNumber);

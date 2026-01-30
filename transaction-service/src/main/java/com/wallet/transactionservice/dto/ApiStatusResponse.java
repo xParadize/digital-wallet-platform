@@ -2,7 +2,7 @@ package com.wallet.transactionservice.dto;
 
 import java.time.Instant;
 
-public record ApiResponse(
+public record ApiStatusResponse(
         boolean success,
         String message
 ) {

@@ -7,6 +7,14 @@ import com.wallet.transactionservice.exception.InvalidAuthorizationException;
 import com.wallet.transactionservice.service.JwtService;
 import com.wallet.transactionservice.service.PaymentOrchestrator;
 import com.wallet.transactionservice.service.TransactionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,26 +31,42 @@ import java.util.stream.Collectors;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/transactions")
+@Tag(name = "Transaction API", description = "Payment and transaction management endpoints")
 public class TransactionApiController {
     private final TransactionService transactionService;
     private final JwtService jwtService;
     private final PaymentOrchestrator paymentOrchestrator;
 
+    @Operation(summary = "Catch-all for unknown paths", description = "Returns 404 for unsupported transaction API paths.", hidden = true)
     @RequestMapping(value = "/**")
-    public ResponseEntity<ApiResponse> handleNotFound() {
+    public ResponseEntity<ApiStatusResponse> handleNotFound() {
         throw new IncorrectSearchPath();
     }
 
+    @Operation(summary = "Get transaction by ID", description = "Returns transaction details for the given transaction ID.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Transaction found", content = @Content(schema = @Schema(implementation = TransactionInfoDto.class))),
+            @ApiResponse(responseCode = "404", description = "Transaction not found")
+    })
     @GetMapping("/{transaction_id}")
-    public TransactionInfoDto getTransaction(@PathVariable("transaction_id") String transactionId) {
+    public TransactionInfoDto getTransaction(
+            @Parameter(description = "Transaction UUID") @PathVariable("transaction_id") String transactionId) {
         return transactionService.getTransactionInfo(UUID.fromString(transactionId));
     }
 
+    @Operation(summary = "Initiate payment", description = "Initiates a payment for the given offer. May require OTP confirmation.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Payment initiated or completed", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failed"),
+            @ApiResponse(responseCode = "401", description = "Invalid or missing authorization")
+    })
+    @SecurityRequirement(name = "Bearer Authentication")
     @PostMapping("/{offer_id}")
-    public ResponseEntity<ApiResponse> initiateTransaction(@PathVariable("offer_id") String offerId,
-                                                          @RequestBody @Valid PaymentRequestDto paymentRequestDto,
-                                                          BindingResult bindingResult,
-                                                          @RequestHeader("Authorization") String authorizationHeader) {
+    public ResponseEntity<ApiStatusResponse> initiateTransaction(
+            @Parameter(description = "Payment offer ID") @PathVariable("offer_id") String offerId,
+            @RequestBody @Valid PaymentRequestDto paymentRequestDto,
+            BindingResult bindingResult,
+            @RequestHeader("Authorization") String authorizationHeader) {
         validateInput(bindingResult);
 
         String jwt = extractJwtFromHeader(authorizationHeader);
@@ -51,41 +75,72 @@ public class TransactionApiController {
         PaymentResult paymentResult = paymentOrchestrator.processPayment(userId, offerId, paymentRequestDto);
 
         if (paymentResult.requiresOtp()) {
-            return new ResponseEntity<>(new ApiResponse(true, paymentResult.message()), HttpStatus.OK);
+            return new ResponseEntity<>(new ApiStatusResponse(true, paymentResult.message()), HttpStatus.OK);
         }
 
-        return new ResponseEntity<>(new ApiResponse(true,"Payment completed"), HttpStatus.OK);
+        return new ResponseEntity<>(new ApiStatusResponse(true,"Payment completed"), HttpStatus.OK);
     }
 
+    @Operation(summary = "Cancel transaction", description = "Cancels an existing transaction by ID.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Transaction cancelled successfully"),
+            @ApiResponse(responseCode = "404", description = "Transaction not found")
+    })
     @PostMapping("/{transaction_id}/cancel")
-    public ResponseEntity<Void> cancelTransaction(@PathVariable("transaction_id") UUID transactionId) {
+    public ResponseEntity<Void> cancelTransaction(
+            @Parameter(description = "Transaction UUID") @PathVariable("transaction_id") UUID transactionId) {
         transactionService.cancelTransaction(transactionId);
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "Confirm OTP and finalize transaction", description = "Confirms OTP and completes a pending transaction.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Transaction finalized successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid OTP or request")
+    })
     @PostMapping("/confirm")
     public ResponseEntity<HttpStatus> confirmOtpAndFinalizeTransaction(@RequestBody OtpConfirmRequest req) {
         transactionService.finishTransactionWithOtp(req.getUserId(), req.getOfferId());
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "Get recent transactions by card", description = "Returns the most recent transactions for the given card number.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "List of recent transactions", content = @Content(schema = @Schema(implementation = TransactionDto.class)))
+    })
     @GetMapping("/{cardId}/recent")
-    public List<TransactionDto> getRecentTransactions(@PathVariable("cardId") String cardNumber, @RequestParam("count") int count) {
+    public List<TransactionDto> getRecentTransactions(
+            @Parameter(description = "Card number") @PathVariable("cardId") String cardNumber,
+            @Parameter(description = "Maximum number of transactions to return") @RequestParam("count") int count) {
         return transactionService.getRecentTransactions(cardNumber, count);
     }
 
+    @Operation(summary = "Get last used card numbers", description = "Returns card numbers recently used by the user, with pagination.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "List of card numbers")
+    })
     @GetMapping("/cards/last-used")
-    public List<String> getLastUsedCardNumbers(@RequestParam("userId") UUID userId,
-                                               @RequestParam("offset") int offset,
-                                               @RequestParam("limit") int limit) {
+    public List<String> getLastUsedCardNumbers(
+            @Parameter(description = "User UUID") @RequestParam("userId") UUID userId,
+            @Parameter(description = "Pagination offset") @RequestParam("offset") int offset,
+            @Parameter(description = "Maximum number of items") @RequestParam("limit") int limit) {
         return transactionService.lastUsedCardNumbers(userId, offset, limit);
     }
 
+    @Operation(summary = "Get transactions by period", description = "Returns transactions for a card within the given date range, grouped by period.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Grouped transactions", content = @Content(schema = @Schema(implementation = PeriodGroupedTransactionsDto.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failed"),
+            @ApiResponse(responseCode = "401", description = "Invalid or missing authorization"),
+            @ApiResponse(responseCode = "403", description = "User has no access to the card")
+    })
+    @SecurityRequirement(name = "Bearer Authentication")
     @PostMapping("/period")
-    public PeriodGroupedTransactionsDto getTransactions(@RequestBody @Valid CardTransactionsRequestDto request,
-                                                        @RequestParam(defaultValue = "0") int page,
-                                          BindingResult bindingResult,
-                                          @RequestHeader("Authorization") String authorizationHeader) {
+    public PeriodGroupedTransactionsDto getTransactions(
+            @RequestBody @Valid CardTransactionsRequestDto request,
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            BindingResult bindingResult,
+            @RequestHeader("Authorization") String authorizationHeader) {
         validateInput(bindingResult);
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
@@ -105,11 +160,20 @@ public class TransactionApiController {
         );
     }
 
+    @Operation(summary = "Get expense by period", description = "Returns expense transactions for a card within the given date range, grouped by period.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Grouped expense data", content = @Content(schema = @Schema(implementation = PeriodGroupedExpenseDto.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failed"),
+            @ApiResponse(responseCode = "401", description = "Invalid or missing authorization"),
+            @ApiResponse(responseCode = "403", description = "User has no access to the card")
+    })
+    @SecurityRequirement(name = "Bearer Authentication")
     @PostMapping("/expense/period")
-    public PeriodGroupedExpenseDto getExpense(@RequestBody @Valid CardTransactionsRequestDto request,
-                                                        @RequestParam(defaultValue = "0") int page,
-                                                        BindingResult bindingResult,
-                                                        @RequestHeader("Authorization") String authorizationHeader) {
+    public PeriodGroupedExpenseDto getExpense(
+            @RequestBody @Valid CardTransactionsRequestDto request,
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            BindingResult bindingResult,
+            @RequestHeader("Authorization") String authorizationHeader) {
         validateInput(bindingResult);
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
@@ -129,11 +193,20 @@ public class TransactionApiController {
         );
     }
 
+    @Operation(summary = "Get income by period", description = "Returns income transactions for a card within the given date range, grouped by period.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Grouped income data", content = @Content(schema = @Schema(implementation = PeriodGroupedIncomeDto.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failed"),
+            @ApiResponse(responseCode = "401", description = "Invalid or missing authorization"),
+            @ApiResponse(responseCode = "403", description = "User has no access to the card")
+    })
+    @SecurityRequirement(name = "Bearer Authentication")
     @PostMapping("/income/period")
-    public PeriodGroupedIncomeDto getIncome(@RequestBody @Valid CardTransactionsRequestDto request,
-                                            @RequestParam(defaultValue = "0") int page,
-                                            BindingResult bindingResult,
-                                            @RequestHeader("Authorization") String authorizationHeader) {
+    public PeriodGroupedIncomeDto getIncome(
+            @RequestBody @Valid CardTransactionsRequestDto request,
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            BindingResult bindingResult,
+            @RequestHeader("Authorization") String authorizationHeader) {
         validateInput(bindingResult);
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
@@ -153,10 +226,19 @@ public class TransactionApiController {
         );
     }
 
+    @Operation(summary = "Get expense analytics report link", description = "Generates or retrieves an expense analytics report for the card and period, returns report URL.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Report link in response body", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failed"),
+            @ApiResponse(responseCode = "401", description = "Invalid or missing authorization"),
+            @ApiResponse(responseCode = "403", description = "User has no access to the card")
+    })
+    @SecurityRequirement(name = "Bearer Authentication")
     @PostMapping("/expense/period/analytics")
-    public ResponseEntity<ApiResponse> getExpenseAnalytics(@RequestBody @Valid CardTransactionsRequestDto request,
-                                                          BindingResult bindingResult,
-                                                          @RequestHeader("Authorization") String authorizationHeader) {
+    public ResponseEntity<ApiStatusResponse> getExpenseAnalytics(
+            @RequestBody @Valid CardTransactionsRequestDto request,
+            BindingResult bindingResult,
+            @RequestHeader("Authorization") String authorizationHeader) {
         validateInput(bindingResult);
         String jwt = extractJwtFromHeader(authorizationHeader);
         UUID userId = UUID.fromString(jwtService.extractUserIdFromJwt(jwt));
@@ -174,7 +256,7 @@ public class TransactionApiController {
                 LocalDate.parse(request.getTo())
         );
 
-        return new ResponseEntity<>(new ApiResponse(true, reportLink), HttpStatus.OK);
+        return new ResponseEntity<>(new ApiStatusResponse(true, reportLink), HttpStatus.OK);
     }
 
     private String extractJwtFromHeader(String authorizationHeader) {
